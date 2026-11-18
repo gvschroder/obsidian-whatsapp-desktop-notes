@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as fs from "fs";
 import type { Vault as ObsidianVault } from "obsidian";
 
-import { rebuildChats, reorganizeNotes, runIncrementalSync, type SyncHooks } from "../../src/sync-service";
+import { expireOldMessages, rebuildChats, reorganizeNotes, runIncrementalSync, type SyncHooks } from "../../src/sync-service";
 import { scopeKey } from "../../src/core/planner";
 import { startSyncing, stopSyncing, storeList } from "../../src/core/selection";
 import { inspectChatStorage } from "../../src/source/whatsapp-repo";
@@ -81,7 +81,7 @@ describe("sync", () => {
 
 			const summary = await sync(vault, cfg);
 
-			expect(summary).toEqual({ chatsUpdated: 5, messagesSaved: 19, failedChats: 0 });
+			expect(summary).toEqual({ chatsUpdated: 5, messagesSaved: 19, failedChats: 0, messagesExpired: 0 });
 			await expect(vault.dump()).toMatchFileSnapshot("__golden__/first-sync.md");
 			await expect(JSON.stringify(cfg.state.chatRecords, null, 2)).toMatchFileSnapshot("__golden__/first-sync.state.json");
 		});
@@ -163,7 +163,7 @@ describe("sync", () => {
 			});
 			const summary = await sync(vault, cfg);
 
-			expect(summary).toEqual({ chatsUpdated: 1, messagesSaved: 2, failedChats: 0 });
+			expect(summary).toEqual({ chatsUpdated: 1, messagesSaved: 2, failedChats: 0, messagesExpired: 0 });
 			await expect(vault.dump()).toMatchFileSnapshot("__golden__/incremental-sync.md");
 		});
 
@@ -405,7 +405,7 @@ describe("sync", () => {
 			await sync(vault, cfg, { isCancelled: () => ++calls > 2 }); // writes 1 chat, then stops
 			expect(cfg.state.highWater).toBeNull();
 			const rest = await sync(vault, cfg);
-			expect(rest).toEqual({ chatsUpdated: 4, messagesSaved: 14, failedChats: 0 });
+			expect(rest).toEqual({ chatsUpdated: 4, messagesSaved: 14, failedChats: 0, messagesExpired: 0 });
 			expect(cfg.state.highWater).toBe(64);
 		});
 
@@ -422,7 +422,7 @@ describe("sync", () => {
 			vault.create = create;
 			vault.append = append;
 			const retry = await sync(vault, cfg);
-			expect(retry).toEqual({ chatsUpdated: 1, messagesSaved: 7, failedChats: 0 });
+			expect(retry).toEqual({ chatsUpdated: 1, messagesSaved: 7, failedChats: 0, messagesExpired: 0 });
 		});
 
 		it("a scope change rescans the window instead of trusting the mark", async () => {
@@ -432,7 +432,7 @@ describe("sync", () => {
 			expect(cfg.state.highWater).toBe(64);
 			cfg.settings.includeGroupChats = true; // groups were never written
 			const after = await sync(vault, cfg);
-			expect(after).toEqual({ chatsUpdated: 3, messagesSaved: 13, failedChats: 0 });
+			expect(after).toEqual({ chatsUpdated: 3, messagesSaved: 13, failedChats: 0, messagesExpired: 0 });
 		});
 
 		it("new messages after a complete sync are read from above the mark only", async () => {
@@ -442,7 +442,7 @@ describe("sync", () => {
 			await mutateChatStorage(fx.chatStorage, {
 				messages: [{ zPk: 65, chat: 6, member: 7, fromJid: JID.injection, text: "Depois", at: "2026-03-12T12:00:00Z" }],
 			});
-			expect(await sync(vault, cfg)).toEqual({ chatsUpdated: 1, messagesSaved: 1, failedChats: 0 });
+			expect(await sync(vault, cfg)).toEqual({ chatsUpdated: 1, messagesSaved: 1, failedChats: 0, messagesExpired: 0 });
 			expect(cfg.state.highWater).toBe(65);
 		});
 	});
@@ -458,7 +458,7 @@ describe("sync", () => {
 				excludedChats: {}, chosenChats: { [ALICE.jid]: { name: ALICE.name, kind: ALICE.kind }, [FALCON_CHAT.jid]: { name: FALCON_CHAT.name, kind: FALCON_CHAT.kind } },
 			});
 			const summary = await sync(vault, cfg);
-			expect(summary).toEqual({ chatsUpdated: 2, messagesSaved: 12, failedChats: 0 });
+			expect(summary).toEqual({ chatsUpdated: 2, messagesSaved: 12, failedChats: 0, messagesExpired: 0 });
 			expect([...vault.files.keys()].sort()).toEqual([
 				"WhatsApp/Groups/Projeto Falcon.md",
 				"WhatsApp/Personal/Alice Souza.md",
@@ -477,7 +477,7 @@ describe("sync", () => {
 
 		it("an empty 'include' selection syncs nothing", async () => {
 			const vault = new Vault();
-			expect(await sync(vault, configFor(fx, { chatFilterMode: "include", excludedChats: {}, chosenChats: {} }))).toEqual({ chatsUpdated: 0, messagesSaved: 0, failedChats: 0 });
+			expect(await sync(vault, configFor(fx, { chatFilterMode: "include", excludedChats: {}, chosenChats: {} }))).toEqual({ chatsUpdated: 0, messagesSaved: 0, failedChats: 0, messagesExpired: 0 });
 		});
 
 		it("adding a chat later backfills its history (the high-water mark is not trusted across selection changes)", async () => {
@@ -488,7 +488,7 @@ describe("sync", () => {
 			cfg.settings.chatFilterMode = change.mode;
 			Object.assign(cfg.settings, storeList("include", change.filter));
 			const after = await sync(vault, cfg);
-			expect(after).toEqual({ chatsUpdated: 1, messagesSaved: 7, failedChats: 0 });
+			expect(after).toEqual({ chatsUpdated: 1, messagesSaved: 7, failedChats: 0, messagesExpired: 0 });
 		});
 
 		it("stopping a chat keeps its note and its cursor; resuming continues without duplicates", async () => {
@@ -506,7 +506,7 @@ describe("sync", () => {
 			const resume = startSyncing(cfg.settings, FALCON_CHAT);
 			cfg.settings.chatFilterMode = resume.mode;
 			Object.assign(cfg.settings, storeList("exclude", resume.filter));
-			expect(await sync(vault, cfg)).toEqual({ chatsUpdated: 1, messagesSaved: 1, failedChats: 0 });
+			expect(await sync(vault, cfg)).toEqual({ chatsUpdated: 1, messagesSaved: 1, failedChats: 0, messagesExpired: 0 });
 			expect(vault.files.get(FALCON)?.split("Contato salvo (Bruno)").length).toBe(2); // once
 		});
 
@@ -745,6 +745,24 @@ describe("sync", () => {
 			expect(vault.files.has(FALCON)).toBe(true); // other chats wait for the next sync
 		});
 
+		it("the index lists each chat's period notes, and is rewritten when it is out of date", async () => {
+			const vault = new Vault();
+			const cfg = configFor(fx, { noteGrouping: "week" });
+			await sync(vault, cfg);
+			const INDEX = "WhatsApp/WhatsApp Index.md";
+			const index = vault.files.get(INDEX) ?? "";
+			expect(index).toContain(`\t- [[${ALICE}/2026-03-09--2026-03-15|March 9–15, 2026]]`);
+
+			vault.files.set(INDEX, "older index\n"); // e.g. written by an older version
+			await sync(vault, cfg); // nothing new to save
+			expect(vault.files.get(INDEX)).toBe(index);
+
+			cfg.settings.noteGrouping = "month";
+			await reorganize(vault, cfg);
+			expect(vault.files.get(INDEX)).toContain(`\t- [[${ALICE}/2026-03|March 2026]]`);
+			expect(vault.files.get(INDEX)).not.toContain("--");
+		});
+
 		describe("notes named by an older version", () => {
 			const WEEK = `${ALICE}/2026-03-09--2026-03-15.md`;
 			const OLD = `${ALICE}/2026-W11.md`;
@@ -795,6 +813,86 @@ describe("sync", () => {
 				expect(vault.files.get(`${ALICE}/2026-W12.md`)).toBe("Sem o ID da conversa\n");
 				expect(vault.trashed).toEqual([]);
 			});
+		});
+	});
+
+	describe("TTL", () => {
+		// The fixture has messages on 2026-03-10 and 2026-03-11; a 1-day TTL on
+		// the 12th keeps the 11th and removes the 10th.
+		const NOW = new Date(2026, 2, 12, 12).getTime();
+		const at = { ...neverCancel, now: () => NOW };
+		const ALICE = "WhatsApp/Personal/Alice Souza";
+		const expire = (vault: Vault, cfg: Config): ReturnType<typeof expireOldMessages> =>
+			expireOldMessages(asVault(vault), cfg.settings, cfg.state, { trashFile: vault.trashFile, now: () => NOW });
+		const notesOf = (vault: Vault, day: string): string[] => [...vault.files.keys()].filter((p) => p.endsWith(`/${day}.md`));
+
+		it("after each sync, days older than the TTL leave the notes; an emptied period note goes to the trash", async () => {
+			const vault = new Vault();
+			const cfg = configFor(fx, { noteGrouping: "day" });
+			await sync(vault, cfg, at);
+			const before = notesOf(vault, "2026-03-10");
+			const total = Object.values(cfg.state.chatRecords).reduce((n, c) => n + c.messageTotal, 0);
+			expect(before.length).toBeGreaterThan(0);
+
+			cfg.settings.retentionDays = 1;
+			const summary = await sync(vault, cfg, at);
+			expect(notesOf(vault, "2026-03-10")).toEqual([]);
+			expect(vault.trashed).toEqual(expect.arrayContaining(before));
+			expect(vault.files.get(`${ALICE}/2026-03-11.md`)).toContain("## 2026-03-11");
+			const left = Object.values(cfg.state.chatRecords).reduce((n, c) => n + c.messageTotal, 0);
+			expect(summary.messagesExpired).toBe(total - left);
+			expect(summary.messagesExpired).toBeGreaterThan(0);
+			expect(vault.files.get("WhatsApp/WhatsApp Index.md")).not.toContain("2026-03-10");
+			// Chats with nothing left are out of the index, and their emptied folder is gone.
+			expect(vault.files.get("WhatsApp/WhatsApp Index.md")).not.toContain("Projeto Falcon");
+			expect(vault.trashed).toContain("WhatsApp/Groups/Projeto Falcon");
+		});
+
+		it("on demand, in one note per chat: the note keeps its header and the text above its first day", async () => {
+			const vault = new Vault();
+			const cfg = configFor(fx, { retentionDays: 0 });
+			await sync(vault, cfg, at);
+			const path = `${ALICE}.md`;
+			const note = vault.files.get(path) ?? "";
+			const header = note.slice(0, note.indexOf("\n## 2026-03-10"));
+			vault.files.set(path, note.replace("\n## 2026-03-10", "\nMinha nota\n\n## 2026-03-10"));
+
+			cfg.settings.retentionDays = 1;
+			const result = await expire(vault, cfg);
+			const after = vault.files.get(path) ?? "";
+			expect(after.startsWith(header + "\nMinha nota\n")).toBe(true);
+			expect(after).not.toContain("## 2026-03-10");
+			expect(after).toContain("## 2026-03-11");
+			expect(result.messages).toBeGreaterThan(0);
+			expect(result.notesTrashed).toBe(0);
+			expect(vault.files.has(FALCON)).toBe(true); // one note per chat is never trashed
+			expect(await expire(vault, cfg)).toEqual({ chats: 0, messages: 0, notesTrashed: 0, failed: 0 });
+		});
+
+		it("rebuilding does not bring expired days back; turning the TTL off does, on the next sync", async () => {
+			const vault = new Vault();
+			const cfg = configFor(fx);
+			await sync(vault, cfg, at);
+			const original = vault.files.get(`${ALICE}.md`);
+
+			cfg.settings.retentionDays = 1;
+			await sync(vault, cfg, at);
+			await rebuildChats(asVault(vault), cfg.settings, cfg.state, [JID.alice], { driver, trashFile: vault.trashFile, now: () => NOW });
+			expect(vault.files.get(`${ALICE}.md`)).not.toContain("## 2026-03-10");
+
+			cfg.settings.retentionDays = 0;
+			await sync(vault, cfg, at);
+			expect(vault.files.get(`${ALICE}.md`)).toBe(original);
+		});
+
+		it("does nothing while the TTL is off", async () => {
+			const vault = new Vault();
+			const cfg = configFor(fx, { noteGrouping: "day" });
+			await sync(vault, cfg, at);
+			const files = new Map(vault.files);
+			expect(await expire(vault, cfg)).toEqual({ chats: 0, messages: 0, notesTrashed: 0, failed: 0 });
+			expect((await sync(vault, cfg, at)).messagesExpired).toBe(0);
+			expect(vault.files).toEqual(files);
 		});
 	});
 

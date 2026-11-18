@@ -9,7 +9,7 @@ import { pickerStart, storeList, type ChatListing, type SelectionChange } from "
 import { NOTICE_PREFIX, setLocale, t } from "./core/i18n";
 import { dbNotFoundMessage, userMessage } from "./core/errors";
 import { setMacOS } from "./core/platform";
-import { rebuildChats, reorganizeNotes, runIncrementalSync } from "./sync-service";
+import { expireOldMessages, rebuildChats, reorganizeNotes, runIncrementalSync } from "./sync-service";
 import { findChatStorage } from "./source/paths";
 import { listChats } from "./source/whatsapp-repo";
 import { StateStore } from "./state/store";
@@ -18,6 +18,8 @@ import { SyncStatusBar } from "./ui/status-bar";
 import { registerCommands } from "./ui/commands";
 import { ChatPickerModal } from "./ui/chat-picker-modal";
 import { SetupModal } from "./ui/setup-modal";
+import { ConfirmModal } from "./ui/small-modals";
+import { retentionCutoffDay } from "./core/planner";
 import { detectLocale } from "./util/locale";
 import { log } from "./util/logger";
 
@@ -229,7 +231,11 @@ export default class WhatsAppDesktopPlugin extends Plugin {
 			});
 			this.state.lastSync = new Date().toISOString();
 			await this.persist();
-			new Notice(PREFIX + t().notices.syncResult(summary.messagesSaved, summary.chatsUpdated, summary.failedChats));
+			new Notice(
+				PREFIX +
+					t().notices.syncResult(summary.messagesSaved, summary.chatsUpdated, summary.failedChats) +
+					(summary.messagesExpired ? t().notices.expiredAfterSync(summary.messagesExpired) : ""),
+			);
 		});
 	}
 
@@ -258,6 +264,33 @@ export default class WhatsAppDesktopPlugin extends Plugin {
 			});
 			await this.persist();
 			new Notice(PREFIX + t().notices.rebuiltAll(result.notesRebuilt, result.failed));
+		});
+	}
+
+	/** Ask, then apply the TTL now. `after` runs once it is done (the settings tab refreshes). */
+	confirmExpire(after?: () => void): void {
+		const days = this.settings.retentionDays;
+		if (!days) {
+			new Notice(PREFIX + t().notices.ttlOff);
+			return;
+		}
+		const d = t().modals;
+		new ConfirmModal(this.app, d.expireTitle, d.expireBody(days, retentionCutoffDay(this.settings, Date.now())), d.expireConfirm, () => {
+			void this.expireOldMessages().then(after);
+		}).open();
+	}
+
+	/** Apply the TTL now (the caller has already asked). */
+	async expireOldMessages(): Promise<void> {
+		if (!this.settings.retentionDays) return;
+		await this.exclusive(async () => {
+			const result = await expireOldMessages(this.app.vault, this.settings, this.state, {
+				reportProgress: (done, total) => this.statusBar.progress(done, total),
+				afterChatSaved: () => this.persist(),
+				trashFile: this.trashFile,
+			});
+			await this.persist();
+			new Notice(PREFIX + t().notices.expired(result.messages, result.notesTrashed, result.failed));
 		});
 	}
 

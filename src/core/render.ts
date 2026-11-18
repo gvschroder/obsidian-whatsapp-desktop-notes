@@ -10,8 +10,13 @@ import { periodOf } from "./periods";
 import type { ChatGroup } from "./planner";
 import type { ChatKind, ChatSyncRecord, ChatStorageMessage } from "./types";
 
-/** What the index needs to list a chat (synced or imported). */
-export type IndexEntry = Pick<ChatSyncRecord, "name" | "kind" | "transcriptPath" | "messageTotal" | "lastMessageAtIso">;
+/**
+ * What the index needs to list a chat. `periods` are the paths of the chat's
+ * period notes, when it is split by period.
+ */
+export type IndexEntry = Pick<ChatSyncRecord, "name" | "kind" | "transcriptPath" | "messageTotal" | "lastMessageAtIso"> & {
+	periods?: string[];
+};
 
 function padTwo(n: number): string {
 	return String(n).padStart(2, "0");
@@ -82,6 +87,16 @@ function headerEnd(content: string): number {
 	const title = /^# .*$/m.exec(content.slice(at));
 	if (title) at += title.index + title[0].length + 1;
 	return at;
+}
+
+/** A note's frontmatter and "# title" line, as written (properties added by hand included). */
+export function noteHeader(content: string): string {
+	return content.slice(0, headerEnd(content));
+}
+
+/** How many messages a piece of a note holds (each starts with a "**HH:MM** — " line). */
+export function countMessages(text: string): number {
+	return text.match(/^\*\*\d{2}:\d{2}\*\* — /gm)?.length ?? 0;
 }
 
 /** One day of a note: its "## YYYY-MM-DD" header and everything up to the next day. */
@@ -170,7 +185,10 @@ export function insertOlderMessages(content: string, olderBody: string, olderLas
 }
 
 
-/** The conversation index note, newest activity first, split by kind. */
+/**
+ * The conversation index note, newest activity first, split by kind. A chat
+ * split by period lists its notes under it, newest first, named in words.
+ */
 export function renderIndex(entries: IndexEntry[], title: string): string {
 	const all = [...entries].sort((a, b) => b.lastMessageAtIso.localeCompare(a.lastMessageAtIso));
 	const [groups, personal] = (["group", "personal"] as const).map((kind) => all.filter((entry) => entry.kind === kind)) as [
@@ -179,10 +197,14 @@ export function renderIndex(entries: IndexEntry[], title: string): string {
 	];
 
 	const m = t().notes;
+	const link = (path: string, alias: string): string => `[[${path.replace(/\.md$/, "")}|${linkAlias(alias)}]]`;
 	const line = (c: IndexEntry): string => {
-		const link = c.transcriptPath.replace(/\.md$/, "");
-		const when = c.lastMessageAtIso ? c.lastMessageAtIso.slice(0, 10) : "";
-		return `- [[${link}|${linkAlias(c.name)}]] — ${m.indexMessages(c.messageTotal)} · ${when}`;
+		const when = c.lastMessageAtIso ? formatLocalDate(new Date(c.lastMessageAtIso)) : "";
+		const periods = [...(c.periods ?? [])]
+			.sort()
+			.reverse()
+			.map((path) => `\n\t- ${link(path, m.periodTitle(periodOf((path.split("/").pop() ?? "").replace(/\.md$/, ""))))}`);
+		return `- ${link(c.transcriptPath, c.name)} — ${m.indexMessages(c.messageTotal)} · ${when}${periods.join("")}`;
 	};
 
 	let md = `# ${escapeMarkdown(singleLine(title))}\n\n`;

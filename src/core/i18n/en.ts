@@ -44,6 +44,7 @@ export const en = {
 		stopSyncingCurrent: "Stop syncing this chat",
 		rebuildCurrent: "Rebuild this chat's note",
 		openSetup: "Open the setup assistant",
+		expireNow: "Remove messages older than the TTL",
 	},
 
 	notices: {
@@ -57,6 +58,12 @@ export const en = {
 			`${plural(notes, "note", "notes")} rebuilt.` + (failed ? ` ${failed} failed — see the developer console.` : ""),
 		reorganized: (chats: number, failed: number) =>
 			`Notes of ${plural(chats, "chat", "chats")} reorganized.` + (failed ? ` ${failed} failed — see the developer console.` : ""),
+		expired: (messages: number, notes: number, failed: number) =>
+			(messages ? `${plural(messages, "old message", "old messages")} removed` : "No message older than the TTL") +
+			(notes ? `; ${plural(notes, "empty note", "empty notes")} moved to the trash.` : ".") +
+			(failed ? ` ${failed} failed — see the developer console.` : ""),
+		expiredAfterSync: (messages: number) => ` ${plural(messages, "old message", "old messages")} removed (TTL).`,
+		ttlOff: "Set a TTL in the settings first (Period › Keep messages for).",
 		listComplete: "Every chat is already on the list.",
 		testing: "Testing access…",
 	},
@@ -141,6 +148,11 @@ export const en = {
 		period: "Copy messages from",
 		periodDesc:
 			"Older messages are not copied. Widening the period adds the missing older messages at the top of each note on the next sync; narrowing it keeps what the notes already have.",
+		retention: "Keep messages for (days)",
+		retentionDesc:
+			"TTL: days older than this leave the notes after every sync, or now with the button; a period note left empty goes to the trash. Text you added inside those days goes too. Empty or 0 keeps everything.",
+		retentionPlaceholder: "Forever",
+		retentionButton: "Remove now",
 
 		notesHeading: "Notes",
 		folder: "Vault folder",
@@ -257,6 +269,10 @@ export const en = {
 		reorganizeBody: (chats: number, layout: string) =>
 			`The notes of ${plural(chats, "chat", "chats")} will be regrouped as "${layout}". Nothing is read from WhatsApp and no message is lost; the old files go to the trash. Properties you added to their frontmatter are not carried over.`,
 		reorganizeConfirm: "Reorganize",
+		expireTitle: "Remove old messages?",
+		expireBody: (days: number, cutoff: string) =>
+			`Days before ${cutoff} (older than ${plural(days, "day", "days")}) will be removed from every chat's notes, including text you added inside them. Period notes left empty go to the trash. This also happens after every sync while the TTL is set.`,
+		expireConfirm: "Remove",
 	},
 
 	statusBar: {

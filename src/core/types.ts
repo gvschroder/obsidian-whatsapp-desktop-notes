@@ -60,6 +60,12 @@ export interface UserSettings {
 	 * SQL window; per-chat dedup by row id handles incremental appends.
 	 */
 	periodDays: number;
+	/**
+	 * How long messages stay in the notes, in days (0 = forever). Days older
+	 * than that leave the notes after each sync, or on demand; a period note
+	 * left empty goes to the trash.
+	 */
+	retentionDays: number;
 	/** Label used for messages you sent (WhatsApp stores no name for "me"). */
 	selfDisplayName: string;
 	/** Selective sync: which list applies (see ChatFilterMode). */
@@ -174,6 +180,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
 	includeGroupChats: true,
 	includeDirectChats: true,
 	periodDays: 30,
+	retentionDays: 0,
 	selfDisplayName: "Me",
 	chatFilterMode: "all",
 	chosenChats: {},

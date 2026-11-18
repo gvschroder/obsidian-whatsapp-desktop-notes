@@ -30,6 +30,7 @@ import { isMacOS } from "../core/platform";
 import { detectLocale } from "../util/locale";
 import { testAccess } from "./access";
 import { ConfirmModal } from "./small-modals";
+import { retentionDays } from "../state/migrations";
 
 /** Controls that stand for one or more settings fields. */
 type BooleanKey = "skipArchived" | "syncOnLaunch" | "verboseLogging";
@@ -120,7 +121,10 @@ export class WhatsAppDesktopSettingsTab extends PluginSettingTab {
 			{
 				type: "group",
 				heading: m.periodHeading,
-				items: [{ name: m.period, desc: m.periodDesc, control: { type: "dropdown", key: "period", options: periodOptions } }],
+				items: [
+					{ name: m.period, desc: m.periodDesc, control: { type: "dropdown", key: "period", options: periodOptions } },
+					{ name: m.retention, desc: m.retentionDesc, render: (setting) => this.renderRetention(setting) },
+				],
 			},
 			{
 				type: "group",
@@ -323,6 +327,31 @@ export class WhatsAppDesktopSettingsTab extends PluginSettingTab {
 							await plugin.syncNow();
 							this.update();
 						}),
+		);
+	}
+
+	/** The TTL in days (empty = forever), and a button to apply it now. */
+	private renderRetention(setting: Setting): void {
+		const m = t().settings;
+		const plugin = this.plugin;
+		setting.addText((text) => {
+			text.inputEl.type = "number";
+			text.inputEl.min = "0";
+			text.inputEl.step = "1";
+			text
+				.setPlaceholder(m.retentionPlaceholder)
+				.setValue(plugin.settings.retentionDays ? String(plugin.settings.retentionDays) : "")
+				.onChange((value) => {
+					plugin.settings.retentionDays = retentionDays(Number(value.trim() || "0"));
+					plugin.persistSoon();
+				});
+		});
+		setting.addButton((b) =>
+			b
+				.setDestructive()
+				.setButtonText(m.retentionButton)
+				.setDisabled(plugin.isSyncing || !Object.keys(plugin.state.chatRecords).length)
+				.onClick(() => plugin.confirmExpire(() => this.update())),
 		);
 	}
 

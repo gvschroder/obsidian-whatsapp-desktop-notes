@@ -19,7 +19,7 @@ network.
 
 ```
 WhatsApp/
-├── WhatsApp Index.md      ← index of every synced chat, newest first
+├── WhatsApp Index.md      ← index of every chat and its notes, newest first
 ├── Personal/
 │   └── Alice Souza/
 │       ├── 2026-02.md
@@ -65,6 +65,8 @@ participants:
 - **Light notes, even for long chats:** split each chat by year, month
   (default), week or day, in a folder per chat — or keep one note per chat.
   Changing the option reorganizes the existing notes without losing anything.
+- **Optional TTL:** set how many days messages stay in the notes; older days
+  leave after every sync, or right away with a command.
 - **Media included:** photos, videos, voice messages, documents, contacts,
   locations, GIFs and stickers appear as labelled lines with their captions,
   durations or names (the files themselves stay in WhatsApp).
@@ -125,6 +127,7 @@ systems the plugin installs but stays inactive and says so in its settings.
 | Stop syncing the chat you are reading | **Stop syncing this chat** (the note is kept) |
 | Refresh a note after edits or deletions in WhatsApp | **Rebuild this chat's note** |
 | Refresh every note | **Settings › Advanced › Rebuild all notes** |
+| Remove messages older than the TTL now | **Remove messages older than the TTL**, or **Settings › Period › Remove now** |
 | Change the setup later | **Open the setup assistant** |
 
 Commands live in the command palette (Cmd+P). Rebuilding rewrites a note from
@@ -139,6 +142,7 @@ WhatsApp, so text you added to it by hand is lost; the plugin asks first.
 | | Choose chats | Opens the chat list: search, filter by kind, show archived chats. |
 | | Skip archived chats | Leaves out chats archived in WhatsApp. |
 | Period | Copy messages from | How far back to copy. Widening it adds the older messages at the top of each note on the next sync; narrowing it keeps what notes already have. |
+| | Keep messages for (days) | TTL: days older than this leave the notes after every sync; **Remove now** applies it right away. Empty or 0 keeps everything. |
 | Notes | Vault folder | Where notes are created. The index note, "WhatsApp Index", goes in it. |
 | | Split notes by | Year, month, week (Monday to Sunday) or day, in a folder per chat; or nothing, one note per chat. Changing it reorganizes the existing notes. |
 | Automatic sync | Frequency | Background sync while Obsidian is open. |
@@ -167,13 +171,20 @@ WhatsApp, so text you added to it by hand is lost; the plugin asks first.
   `2026-03-09--2026-03-15.md` (a week, Monday to Sunday) or `2026-03-10.md`.
   The title spells the period out ("March 9–15, 2026"), and the
   `whatsapp_period_start` and `whatsapp_period_end` properties hold its first
-  and last day as dates — easy to filter in Bases or Dataview. The index links
-  to the latest note. A day is never split across two notes.
+  and last day as dates — easy to filter in Bases or Dataview. In the index,
+  each chat links to its latest note and lists all its notes below, newest
+  first, with the period spelled out. A day is never split across two notes.
 - Changing the split reorganizes the notes without reading WhatsApp: each day's
   section moves as it is, including what you wrote in it and messages older than
   the current period. The new notes are written before the old ones go to the
   trash. Only properties you added to the frontmatter are not carried over.
   Installs from before this option keep one note per chat until you change it.
+- With a TTL, the days before it (whole days, in local time) leave the notes
+  without reading WhatsApp, including what you wrote inside them; text above a
+  note's first day stays. A period note left empty goes to the trash, and a
+  chat with no note left is out of the index until it gets new messages; a
+  chat's single note is never deleted. Syncing and rebuilding do not bring back
+  days the TTL removed; raising or turning off the TTL does, on the next sync.
 - Each chat is named after itself; two chats with the same name get
   "Name (2)". The chat is identified by its WhatsApp ID (`whatsapp_jid`), not by the
   file name: renaming a chat keeps its note and its place in your selection, and

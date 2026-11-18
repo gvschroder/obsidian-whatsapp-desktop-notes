@@ -19,7 +19,7 @@ acessa a internet.
 
 ```
 WhatsApp/
-├── WhatsApp Index.md      ← índice das conversas sincronizadas, mais recentes primeiro
+├── WhatsApp Index.md      ← índice das conversas e das notas de cada uma, mais recentes primeiro
 ├── Pessoais/
 │   └── Alice Souza/
 │       ├── 2026-02.md
@@ -65,6 +65,8 @@ participants:
 - **Notas leves, mesmo em conversas longas:** divida cada conversa por ano,
   mês (padrão), semana ou dia, numa pasta da conversa — ou mantenha uma nota só
   por conversa. Mudar a opção reorganiza as notas existentes sem perder nada.
+- **TTL opcional:** defina por quantos dias as mensagens ficam nas notas; os
+  dias mais antigos saem depois de cada sincronização, ou na hora, por comando.
 - **Mídias incluídas:** fotos, vídeos, áudios, documentos, contatos,
   localizações, GIFs e figurinhas aparecem como linhas identificadas, com
   legenda, duração ou nome (os arquivos continuam no WhatsApp).
@@ -129,6 +131,7 @@ configurações.
 | Parar de sincronizar a conversa aberta | **Parar de sincronizar esta conversa** (a nota é mantida) |
 | Atualizar uma nota após edições ou exclusões no WhatsApp | **Reconstruir a nota desta conversa** |
 | Atualizar todas as notas | **Configurações › Avançado › Reconstruir todas as notas** |
+| Apagar agora as mensagens mais antigas que o TTL | **Apagar mensagens mais antigas que o TTL**, ou **Configurações › Período › Apagar agora** |
 | Mudar a configuração depois | **Abrir o assistente de configuração** |
 
 Os comandos ficam na paleta (Cmd+P). Reconstruir reescreve a nota a partir do
@@ -144,6 +147,7 @@ antes.
 | | Escolher conversas | Abre a lista de conversas: busca, filtro por tipo, conversas arquivadas. |
 | | Ignorar conversas arquivadas | Deixa de fora as conversas arquivadas no WhatsApp. |
 | Período | Copiar mensagens de | Até quando voltar. Ampliar acrescenta as mensagens antigas no início de cada nota na próxima sincronização; reduzir mantém o que as notas já têm. |
+| | Manter mensagens por (dias) | TTL: os dias mais antigos que isso saem das notas depois de cada sincronização; **Apagar agora** aplica na hora. Vazio ou 0 mantém tudo. |
 | Notas | Pasta no vault | Onde as notas são criadas. A nota de índice, "WhatsApp Index", fica nela. |
 | | Dividir as notas por | Ano, mês, semana (de segunda a domingo) ou dia, numa pasta por conversa; ou nada, uma nota por conversa. Mudar reorganiza as notas existentes. |
 | Sincronização automática | Frequência | Sincroniza em segundo plano com o Obsidian aberto. |
@@ -173,14 +177,22 @@ antes.
   domingo) ou `2026-03-10.md`. O título traz o período por extenso ("9 a 15 de
   março de 2026"), e as propriedades `whatsapp_period_start` e
   `whatsapp_period_end` trazem o primeiro e o último dia como datas — fáceis de
-  filtrar em Bases ou Dataview. O índice aponta para a nota mais recente. Um dia
-  nunca fica dividido entre duas notas.
+  filtrar em Bases ou Dataview. No índice, cada conversa aponta para a nota mais
+  recente e lista abaixo todas as suas notas, da mais nova para a mais antiga,
+  com o período por extenso. Um dia nunca fica dividido entre duas notas.
 - Mudar a divisão reorganiza as notas sem ler o WhatsApp: as seções de cada dia
   são movidas como estão, inclusive o que você escreveu nelas e mensagens mais
   antigas que o período atual. As notas novas são gravadas antes de as antigas
   irem para a lixeira. Só propriedades que você acrescentou ao frontmatter não
   são levadas. Instalações anteriores a esta opção continuam com uma nota por
   conversa até você mudar.
+- Com um TTL, os dias anteriores a ele (contados em dias inteiros, no horário
+  local) saem das notas sem ler o WhatsApp, inclusive o que você escreveu
+  dentro deles; o texto acima do primeiro dia de uma nota fica. Uma nota de
+  período que fica vazia vai para a lixeira, e a conversa sem nenhuma nota sai
+  do índice até receber mensagens novas; a nota única de uma conversa nunca é
+  apagada. Sincronizar e reconstruir não trazem de volta dias que o TTL tirou;
+  aumentar ou desligar o TTL traz, na próxima sincronização.
 - Cada conversa tem o nome dela; duas conversas com o mesmo nome viram
   "Nome (2)". A conversa é identificada pelo ID do WhatsApp (`whatsapp_jid`), não
   pelo nome do arquivo: renomear uma conversa mantém a nota e o lugar dela na

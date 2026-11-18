@@ -65,6 +65,11 @@ function sanitizeChatFilter(raw: unknown): Record<string, ChatFilterEntry> {
 	return out;
 }
 
+/** A whole number of days, 0 (forever) when invalid. */
+export function retentionDays(value: number): number {
+	return Number.isFinite(value) && value > 0 ? Math.min(Math.floor(value), 36_500) : 0;
+}
+
 /** Keep only known settings keys whose value has the default's type. */
 function sanitizeSettings(raw: unknown): UserSettings {
 	const out: UserSettings = { ...DEFAULT_SETTINGS, chosenChats: {}, excludedChats: {} };
@@ -81,6 +86,7 @@ function sanitizeSettings(raw: unknown): UserSettings {
 	out.excludedChats = sanitizeChatFilter(raw.excludedChats);
 	out.language = raw.language === "en" || raw.language === "pt" ? raw.language : "auto";
 	out.noteGrouping = grouping(raw.noteGrouping);
+	out.retentionDays = retentionDays(out.retentionDays);
 	return out;
 }
 

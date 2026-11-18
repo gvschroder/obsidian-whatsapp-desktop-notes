@@ -102,7 +102,7 @@ describe("renderMessages", () => {
 });
 
 describe("renderIndex", () => {
-	const chat = (o: Partial<ChatSyncRecord>): ChatSyncRecord => ({
+	const chat = (o: Partial<ChatSyncRecord> & { periods?: string[] }): ChatSyncRecord & { periods?: string[] } => ({
 		jid: "j",
 		name: "N",
 		kind: "group",
@@ -120,8 +120,8 @@ describe("renderIndex", () => {
 	it("lists chats newest first, split by kind", () => {
 		const md = renderIndex(
 			[
-				chat({ name: "Antigo [x]", lastMessageAtIso: "2026-01-01T00:00:00.000Z", transcriptPath: "WA/G/Antigo h.md" }),
-				chat({ name: "Novo", lastMessageAtIso: "2026-03-01T00:00:00.000Z", transcriptPath: "WA/G/Novo h.md", messageTotal: 3 }),
+				chat({ name: "Antigo [x]", lastMessageAtIso: "2026-01-01T12:00:00.000Z", transcriptPath: "WA/G/Antigo h.md" }),
+				chat({ name: "Novo", lastMessageAtIso: "2026-03-01T12:00:00.000Z", transcriptPath: "WA/G/Novo h.md", messageTotal: 3 }),
 				chat({ name: "Pessoa", kind: "personal", transcriptPath: "WA/P/Pessoa h.md" }),
 			],
 			"WA",
@@ -131,6 +131,29 @@ describe("renderIndex", () => {
 				"_3 chats · updated on every sync._\n\n" +
 				"## Personal chats (1)\n\n- [[WA/P/Pessoa h|Pessoa]] — 1 message · 2026-03-10\n\n" +
 				"## Groups (2)\n\n- [[WA/G/Novo h|Novo]] — 3 messages · 2026-03-01\n- [[WA/G/Antigo h|Antigo (x)]] — 1 message · 2026-01-01\n",
+		);
+	});
+
+	it("dates the last message in local time", () => {
+		// 01:30 UTC on the 11th is still the 10th in São Paulo (tests run there).
+		expect(renderIndex([chat({ lastMessageAtIso: "2026-03-11T01:30:00.000Z" })], "WA")).toContain("— 1 message · 2026-03-10\n");
+	});
+
+	it("lists a chat's period notes under it, newest first, named in words", () => {
+		const md = renderIndex(
+			[
+				chat({
+					grouping: "week",
+					transcriptPath: "WA/G/N/2026-03-09--2026-03-15.md",
+					periods: ["WA/G/N/2026-02-23--2026-03-01.md", "WA/G/N/2026-03-09--2026-03-15.md"],
+				}),
+			],
+			"WA",
+		);
+		expect(md).toContain(
+			"- [[WA/G/N/2026-03-09--2026-03-15|N]] — 1 message · 2026-03-10\n" +
+				"\t- [[WA/G/N/2026-03-09--2026-03-15|March 9–15, 2026]]\n" +
+				"\t- [[WA/G/N/2026-02-23--2026-03-01|February 23 – March 1, 2026]]\n",
 		);
 	});
 

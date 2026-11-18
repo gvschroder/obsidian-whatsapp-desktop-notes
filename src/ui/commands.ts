@@ -80,6 +80,16 @@ export function registerCommands(plugin: WhatsAppDesktopPlugin): void {
 	});
 
 	plugin.addCommand({
+		id: "expire-old-messages",
+		name: m.expireNow,
+		checkCallback: (checking) => {
+			if (plugin.isSyncing || !Object.keys(plugin.state.chatRecords).length) return false;
+			if (!checking) plugin.confirmExpire();
+			return true;
+		},
+	});
+
+	plugin.addCommand({
 		id: "open-setup",
 		name: m.openSetup,
 		callback: () => plugin.openSetup(),

@@ -21,9 +21,34 @@ export interface ChatGroup {
 	messages: ChatStorageMessage[];
 }
 
-/** Lower bound (Mac absolute time) for this run's SQL window; 0 means "all history". */
-export function periodStartCoreDataTime(settings: Pick<UserSettings, "periodDays">, nowMs: number): number {
-	return settings.periodDays > 0 ? dateToCoreDataTime(new Date(nowMs - settings.periodDays * DAY_MS)) : 0;
+/** Start of the first local day the TTL keeps; null when messages are kept forever. */
+function retentionStart(settings: Pick<UserSettings, "retentionDays">, nowMs: number): Date | null {
+	if (!(settings.retentionDays > 0)) return null;
+	const start = new Date(nowMs - settings.retentionDays * DAY_MS);
+	start.setHours(0, 0, 0, 0);
+	return start;
+}
+
+/**
+ * The first day (local YYYY-MM-DD) the TTL keeps — older days leave the
+ * notes — or "" when messages are kept forever.
+ */
+export function retentionCutoffDay(settings: Pick<UserSettings, "retentionDays">, nowMs: number): string {
+	const start = retentionStart(settings, nowMs);
+	if (!start) return "";
+	const pad = (n: number): string => String(n).padStart(2, "0");
+	return `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`;
+}
+
+/**
+ * Lower bound (Mac absolute time) for this run's SQL window; 0 means "all
+ * history". The later of the copy period's start and the TTL's first day, so
+ * days the TTL removed are not written back.
+ */
+export function periodStartCoreDataTime(settings: Pick<UserSettings, "periodDays" | "retentionDays">, nowMs: number): number {
+	const period = settings.periodDays > 0 ? dateToCoreDataTime(new Date(nowMs - settings.periodDays * DAY_MS)) : 0;
+	const kept = retentionStart(settings, nowMs);
+	return kept ? Math.max(period, dateToCoreDataTime(kept)) : period;
 }
 
 /**

@@ -45,6 +45,7 @@ export const pt: Messages = {
 		stopSyncingCurrent: "Parar de sincronizar esta conversa",
 		rebuildCurrent: "Reconstruir a nota desta conversa",
 		openSetup: "Abrir o assistente de configuração",
+		expireNow: "Apagar mensagens mais antigas que o TTL",
 	},
 
 	notices: {
@@ -59,6 +60,12 @@ export const pt: Messages = {
 			`${plural(notes, "nota reconstruída", "notas reconstruídas")}.` + (failed ? ` ${failed} com erro — veja o console.` : ""),
 		reorganized: (chats, failed) =>
 			`Notas de ${plural(chats, "conversa reorganizadas", "conversas reorganizadas")}.` + (failed ? ` ${failed} com erro — veja o console.` : ""),
+		expired: (messages, notes, failed) =>
+			(messages ? `${plural(messages, "mensagem antiga apagada", "mensagens antigas apagadas")}` : "Nenhuma mensagem mais antiga que o TTL") +
+			(notes ? `; ${plural(notes, "nota vazia foi", "notas vazias foram")} para a lixeira.` : ".") +
+			(failed ? ` ${failed} com erro — veja o console.` : ""),
+		expiredAfterSync: (messages) => ` ${plural(messages, "mensagem antiga apagada", "mensagens antigas apagadas")} (TTL).`,
+		ttlOff: "Defina antes um TTL nas configurações (Período › Manter mensagens por).",
 		listComplete: "Todas as conversas já estão na lista.",
 		testing: "Testando o acesso…",
 	},
@@ -142,6 +149,11 @@ export const pt: Messages = {
 		period: "Copiar mensagens de",
 		periodDesc:
 			"Mensagens mais antigas não são copiadas. Ampliar o período acrescenta as mensagens antigas que faltam no início de cada nota na próxima sincronização; reduzir mantém o que as notas já têm.",
+		retention: "Manter mensagens por (dias)",
+		retentionDesc:
+			"TTL: os dias mais antigos que isso saem das notas depois de cada sincronização, ou agora pelo botão; uma nota de período que fica vazia vai para a lixeira. O que você escreveu dentro desses dias vai junto. Vazio ou 0 mantém tudo.",
+		retentionPlaceholder: "Sempre",
+		retentionButton: "Apagar agora",
 
 		notesHeading: "Notas",
 		folder: "Pasta no vault",
@@ -258,6 +270,10 @@ export const pt: Messages = {
 		reorganizeBody: (chats, layout) =>
 			`As notas de ${plural(chats, "conversa", "conversas")} serão reagrupadas por "${layout}". Nada é lido do WhatsApp e nenhuma mensagem se perde; os arquivos antigos vão para a lixeira. Propriedades que você acrescentou ao frontmatter não são levadas.`,
 		reorganizeConfirm: "Reorganizar",
+		expireTitle: "Apagar mensagens antigas?",
+		expireBody: (days, cutoff) =>
+			`Os dias antes de ${cutoff} (mais de ${plural(days, "dia", "dias")}) serão apagados das notas de todas as conversas, inclusive o que você escreveu dentro deles. Notas de período que ficarem vazias vão para a lixeira. Isso também acontece depois de cada sincronização enquanto o TTL estiver definido.`,
+		expireConfirm: "Apagar",
 	},
 
 	statusBar: {

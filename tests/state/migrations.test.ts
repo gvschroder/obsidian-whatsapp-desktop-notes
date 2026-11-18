@@ -46,6 +46,14 @@ describe("migrate", () => {
 		expect(migrate({ settings: { noteGrouping: "week" } }).settings.noteGrouping).toBe("week");
 	});
 
+	it("the TTL is a whole number of days, off (0) unless set", () => {
+		expect(migrate({ settings: {} }).settings.retentionDays).toBe(0);
+		expect(migrate({ settings: { retentionDays: 30.7 } }).settings.retentionDays).toBe(30);
+		expect(migrate({ settings: { retentionDays: -5 } }).settings.retentionDays).toBe(0);
+		expect(migrate({ settings: { retentionDays: "30" } }).settings.retentionDays).toBe(0);
+		expect(migrate({ settings: { retentionDays: 1e9 } }).settings.retentionDays).toBe(36_500);
+	});
+
 	it("loads a saved file as-is", () => {
 		const saved = {
 			schemaVersion: 1,

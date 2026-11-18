@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+	retentionCutoffDay,
 	chatParticipants,
 	cursorsOf,
 	freeNotePath,
@@ -43,11 +44,26 @@ function chatState(overrides: Partial<ChatSyncRecord> = {}): ChatSyncRecord {
 
 describe("periodStartCoreDataTime", () => {
 	it("is 0 (all history) when the period is 0", () => {
-		expect(periodStartCoreDataTime({ periodDays: 0 }, NOW)).toBe(0);
+		expect(periodStartCoreDataTime({ periodDays: 0, retentionDays: 0 }, NOW)).toBe(0);
 	});
 
 	it("uses now − N days", () => {
-		expect(periodStartCoreDataTime({ periodDays: 1 }, NOW)).toBe(dateToCoreDataTime(new Date("2026-03-10T12:00:00Z")));
+		expect(periodStartCoreDataTime({ periodDays: 1, retentionDays: 0 }, NOW)).toBe(dateToCoreDataTime(new Date("2026-03-10T12:00:00Z")));
+	});
+
+	it("never reaches before the TTL's first day (local midnight)", () => {
+		const ttlStart = dateToCoreDataTime(new Date(2026, 2, 9)); // NOW − 2 days, at 00:00 local
+		expect(periodStartCoreDataTime({ periodDays: 0, retentionDays: 2 }, NOW)).toBe(ttlStart);
+		expect(periodStartCoreDataTime({ periodDays: 30, retentionDays: 2 }, NOW)).toBe(ttlStart);
+		expect(periodStartCoreDataTime({ periodDays: 1, retentionDays: 30 }, NOW)).toBe(dateToCoreDataTime(new Date("2026-03-10T12:00:00Z")));
+	});
+});
+
+describe("retentionCutoffDay", () => {
+	it("is the first local day the TTL keeps, or nothing when it is off", () => {
+		expect(retentionCutoffDay({ retentionDays: 0 }, NOW)).toBe("");
+		expect(retentionCutoffDay({ retentionDays: 2 }, NOW)).toBe("2026-03-09");
+		expect(retentionCutoffDay({ retentionDays: 30 }, NOW)).toBe("2026-02-09");
 	});
 });
 

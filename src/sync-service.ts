@@ -21,10 +21,13 @@ import {
 	scopeKey,
 	targetRoot,
 	periodStartCoreDataTime,
+	retentionCutoffDay,
 	type PathTaken,
 } from "./core/planner";
 import {
+	countMessages,
 	formatLocalDate,
+	noteHeader,
 	insertOlderMessages,
 	joinSections,
 	transcriptHeader,
@@ -33,7 +36,7 @@ import {
 	splitNote,
 	type DaySection,
 } from "./core/render";
-import { isPeriodNoteName, layoutOf, notePath, periodKey, runsByPeriod, type ChatLayout } from "./core/periods";
+import { isPeriodNoteName, layoutOf, notePath, periodKey, periodOf, runsByPeriod, type ChatLayout } from "./core/periods";
 import { coreDataTimeToDate } from "./core/mactime";
 import { toYamlString } from "./core/markdown";
 import { setFrontmatterList } from "./core/frontmatter";
@@ -64,6 +67,8 @@ export interface SyncReport {
 	chatsUpdated: number;
 	messagesSaved: number;
 	failedChats: number;
+	/** Messages older than the TTL removed from the notes after writing. */
+	messagesExpired: number;
 }
 
 export interface SyncHooks {
@@ -121,6 +126,24 @@ async function chatNotes(vault: Vault, layout: ChatLayout, jid: string): Promise
 	const own: string[] = [];
 	for (const path of candidates) if ((await readNote(vault, path))?.includes(marker)) own.push(path);
 	return own;
+}
+
+/**
+ * Write the index note from the stored chats and the period notes in their
+ * folders; left alone when it already says exactly that.
+ */
+async function writeIndex(vault: Vault, settings: UserSettings, state: SyncState): Promise<void> {
+	const entries = Object.values(state.chatRecords)
+		.map((chat) => ({
+			...chat,
+			periods:
+				chat.grouping === "single" ? [] : notesIn(vault, layoutOf(chat).base).filter((p) => isPeriodNoteName(noteName(p), chat.grouping)),
+		}))
+		// A chat split by period whose notes all expired (or were deleted) has nothing to link to.
+		.filter((chat) => chat.grouping === "single" || chat.periods.length);
+	const path = indexPath(settings);
+	const content = renderIndex(entries, INDEX_NOTE_NAME);
+	if ((await readNote(vault, path)) !== content) await writeVaultFile(vault, path, content);
 }
 
 /** A note's file name without its folder and ".md". */
@@ -305,7 +328,7 @@ export async function rebuildChats(
 		await yieldToUi();
 	}
 
-	if (result.notesRebuilt) await writeVaultFile(vault, indexPath(settings), renderIndex(Object.values(state.chatRecords), INDEX_NOTE_NAME));
+	if (result.notesRebuilt) await writeIndex(vault, settings, state);
 	return result;
 }
 
@@ -372,7 +395,7 @@ async function backfillOlder(
 }
 
 export async function runIncrementalSync(vault: Vault, settings: UserSettings, state: SyncState, opts: SyncHooks): Promise<SyncReport> {
-	const summary: SyncReport = { chatsUpdated: 0, messagesSaved: 0, failedChats: 0 };
+	const summary: SyncReport = { chatsUpdated: 0, messagesSaved: 0, failedChats: 0, messagesExpired: 0 };
 
 	const dbPath = requireDbPath(settings);
 	const sinceMac = periodStartCoreDataTime(settings, (opts.now ?? Date.now)());
@@ -505,12 +528,17 @@ export async function runIncrementalSync(vault: Vault, settings: UserSettings, s
 		await opts.afterChatSaved?.();
 	}
 
-	// Rewrite the index only when something changed, or when it is missing.
+	// Days older than the TTL leave the notes, new messages included.
+	if (!cancelled && settings.retentionDays > 0) {
+		const expired = await expireChats(vault, settings, state, opts);
+		summary.messagesExpired = expired.messages;
+		summary.failedChats += expired.failed;
+	}
+
+	// Rewrite the index whenever it differs from what it should say: missing,
+	// out of date, or written by an older version.
 	try {
-		const index = indexPath(settings);
-		if (summary.chatsUpdated > 0 || !noteExists(vault, index)) {
-			await writeVaultFile(vault, index, renderIndex(Object.values(state.chatRecords), INDEX_NOTE_NAME));
-		}
+		await writeIndex(vault, settings, state);
 	} catch (e) {
 		log.warning(`could not regenerate index: ${messageOf(e)}`);
 	}
@@ -564,7 +592,7 @@ export async function reorganizeNotes(
 	}
 	if (result.chats) {
 		try {
-			await writeVaultFile(vault, indexPath(settings), renderIndex(Object.values(state.chatRecords), INDEX_NOTE_NAME));
+			await writeIndex(vault, settings, state);
 		} catch (e) {
 			log.warning(`could not regenerate index: ${messageOf(e)}`);
 		}
@@ -627,4 +655,121 @@ async function regroupChat(
 		grouping: target,
 		transcriptPath: written.reduce(later, "") || notePath(to, periodKey(chat.lastDayHeading, target)),
 	};
+}
+
+export interface ExpireResult {
+	/** Chats that had days older than the TTL. */
+	chats: number;
+	/** Messages removed from the notes. */
+	messages: number;
+	/** Period notes left empty, now in the trash. */
+	notesTrashed: number;
+	/** Chats whose notes could not be changed (details in the console). */
+	failed: number;
+}
+
+/**
+ * Apply the TTL now: remove from every chat's notes the days older than
+ * `retentionDays`, without reading WhatsApp. Text added by hand inside such a
+ * day goes with it; text above a note's first day stays. A period note left
+ * with no day goes to the trash; one note per chat keeps its header. Nothing
+ * happens when the TTL is off.
+ */
+export async function expireOldMessages(
+	vault: Vault,
+	settings: UserSettings,
+	state: SyncState,
+	opts: Pick<SyncHooks, "afterChatSaved" | "trashFile" | "reportProgress" | "now">,
+): Promise<ExpireResult> {
+	const result = await expireChats(vault, settings, state, opts);
+	if (result.chats) {
+		try {
+			await writeIndex(vault, settings, state);
+		} catch (e) {
+			log.warning(`could not regenerate index: ${messageOf(e)}`);
+		}
+	}
+	return result;
+}
+
+async function expireChats(
+	vault: Vault,
+	settings: UserSettings,
+	state: SyncState,
+	opts: Pick<SyncHooks, "afterChatSaved" | "trashFile" | "reportProgress" | "now">,
+): Promise<ExpireResult> {
+	const result: ExpireResult = { chats: 0, messages: 0, notesTrashed: 0, failed: 0 };
+	const now = (opts.now ?? Date.now)();
+	const cutoff = retentionCutoffDay(settings, now);
+	if (!cutoff) return result;
+	const chats = Object.values(state.chatRecords);
+	let done = 0;
+	for (const chat of chats) {
+		opts.reportProgress?.(++done, chats.length);
+		try {
+			const expired = await expireChat(vault, chat, cutoff, opts.trashFile);
+			if (!expired) continue;
+			// A later, longer TTL (or none) brings the removed days back from WhatsApp.
+			const kept = periodStartCoreDataTime({ periodDays: 0, retentionDays: settings.retentionDays }, now);
+			state.chatRecords[chat.jid] = {
+				...chat,
+				messageTotal: Math.max(0, chat.messageTotal - expired.messages),
+				transcriptPath: expired.transcriptPath,
+				coveredSinceMac: Math.max(chat.coveredSinceMac ?? 0, kept),
+			};
+			result.chats++;
+			result.messages += expired.messages;
+			result.notesTrashed += expired.trashed;
+			await opts.afterChatSaved?.();
+		} catch (e) {
+			result.failed++;
+			log.warning(`failed to remove old messages of chat "${chat.name}" (${chat.jid}): ${messageOf(e)}`);
+		}
+		await yieldToUi();
+	}
+	return result;
+}
+
+/** Remove one chat's days before `cutoff`; null when it has none. */
+async function expireChat(
+	vault: Vault,
+	chat: ChatSyncRecord,
+	cutoff: string,
+	trash: TrashFile,
+): Promise<{ messages: number; trashed: number; transcriptPath: string } | null> {
+	const layout = layoutOf(chat);
+	const all = layout.grouping === "single" ? [notePath(layout, "")] : notesIn(vault, layout.base);
+	// A period note named as such that starts on or after the cutoff has no old
+	// day: it is not even read, so a sync stays cheap however many notes there are.
+	const recent = (path: string): boolean =>
+		layout.grouping !== "single" && isPeriodNoteName(noteName(path), layout.grouping) && periodOf(noteName(path)).start >= cutoff;
+	const remaining = all.filter(recent);
+	const marker = jidMarker(chat.jid);
+	let messages = 0;
+	let trashed = 0;
+	let changed = false;
+	for (const path of all.filter((p) => !recent(p))) {
+		const content = await readNote(vault, path);
+		if (!content?.includes(marker)) continue; // not this chat's note (or missing)
+		const { preamble, sections } = splitNote(content);
+		const old = sections.filter((s) => s.day < cutoff);
+		if (!old.length) {
+			remaining.push(path);
+			continue;
+		}
+		changed = true;
+		messages += old.reduce((n, s) => n + countMessages(s.text), 0);
+		const kept = sections.filter((s) => s.day >= cutoff);
+		if (!kept.length && layout.grouping !== "single") {
+			await trashNote(vault, path, trash);
+			trashed++;
+			continue;
+		}
+		await writeVaultFile(vault, path, noteHeader(content) + joinSections(preamble, kept));
+		remaining.push(path);
+	}
+	if (!changed) return null;
+	if (layout.grouping !== "single" && !remaining.length) await trashFolderIfEmpty(vault, layout.base, trash);
+	const transcriptPath = layout.grouping === "single" || remaining.includes(chat.transcriptPath) ? chat.transcriptPath : remaining.reduce(later, "") || chat.transcriptPath;
+	return { messages, trashed, transcriptPath };
 }
