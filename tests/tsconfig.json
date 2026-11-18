@@ -1,0 +1,11 @@
+{
+	// Type-checks the test suite (and the Vitest config) separately from the
+	// plugin build: tests run under Node/Vitest and need "bundler" resolution for
+	// package "exports" maps, which the plugin's tsconfig does not use.
+	"extends": "../tsconfig.json",
+	"compilerOptions": {
+		"moduleResolution": "bundler",
+		"types": ["node"]
+	},
+	"include": ["**/*.ts", "../src/**/*.ts", "../vitest.config.mts"]
+}

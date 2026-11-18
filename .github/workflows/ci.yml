@@ -1,0 +1,43 @@
+name: CI
+
+# Runs on every push and pull request: type-check, lint (official
+# eslint-plugin-obsidianmd rules), tests, production build, dependency audit
+# and the licence policy. Based on obsidian-sample-plugin's lint.yml.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    # The plugin targets macOS (the only official WhatsApp Desktop with a
+    # readable database), so its tests run there.
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 24.x matches the Node embedded in current Obsidian desktop builds
+        # (Electron 43); Node 20 reached end-of-life in April 2026.
+        node-version: [22.x, 24.x]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run coverage
+      - run: npm run build
+      - name: Audit production dependencies
+        run: npm audit --omit=dev
+      - name: Licence policy
+        run: npm run licenses

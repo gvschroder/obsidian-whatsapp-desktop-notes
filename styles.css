@@ -1,0 +1,71 @@
+/* WhatsApp Desktop (macOS) — minimal styles. The plugin renders through the
+   standard Settings API, so there is little custom UI to style. */
+
+/* Status-bar item (ui/status-bar.ts): keep "45/1200" from jittering. */
+.wa-desktop-notes-status {
+	font-variant-numeric: tabular-nums;
+}
+
+/* Settings text field holding a value that failed validation. */
+.wa-desktop-notes-invalid {
+	border-color: var(--text-error);
+}
+
+/* Chat picker (ui/chat-picker-modal.ts): the list takes the free height and
+   scrolls; the Save/Cancel footer always stays in view. */
+.modal.wa-desktop-notes-picker-modal {
+	display: flex;
+	flex-direction: column;
+	max-height: 85vh;
+}
+
+.wa-desktop-notes-picker-modal .modal-content {
+	display: flex;
+	flex-direction: column;
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow: hidden;
+}
+
+.wa-desktop-notes-picker-list {
+	flex: 1 1 auto;
+	min-height: 8em;
+	overflow-y: auto;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	margin: var(--size-4-2) 0;
+}
+
+.wa-desktop-notes-picker-footer {
+	flex: 0 0 auto;
+	border-top: none;
+}
+
+.wa-desktop-notes-picker-row {
+	display: flex;
+	align-items: baseline;
+	gap: var(--size-4-2);
+	padding: var(--size-4-1) var(--size-4-2);
+	cursor: pointer;
+}
+
+.wa-desktop-notes-picker-row:hover {
+	background-color: var(--background-modifier-hover);
+}
+
+.wa-desktop-notes-picker-name {
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.wa-desktop-notes-picker-meta,
+.wa-desktop-notes-picker-empty {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+.wa-desktop-notes-picker-empty {
+	padding: var(--size-4-2);
+}

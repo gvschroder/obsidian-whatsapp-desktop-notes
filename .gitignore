@@ -1,0 +1,21 @@
+# Dependencies and generated files
+node_modules/
+coverage/
+main.js
+*.map
+
+# Plugin data from a local test vault
+data.json
+
+# WhatsApp databases and transcripts must never be committed
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+WhatsApp/
+
+# Editors and operating system
+.idea/
+.vscode/
+*.iml
+.DS_Store
+*.log

@@ -1,0 +1,79 @@
+{
+  "5511999990001@s.whatsapp.net": {
+    "jid": "5511999990001@s.whatsapp.net",
+    "name": "Alice Souza",
+    "kind": "personal",
+    "transcriptPath": "WhatsApp/Personal/Alice Souza.md",
+    "lastMessageZPk": 15,
+    "lastMessageAtIso": "2026-03-11T11:30:00.000Z",
+    "lastDayHeading": "2026-03-11",
+    "messageTotal": 5,
+    "coveredSinceMac": 0,
+    "participants": [
+      "Alice Souza",
+      "Eu"
+    ]
+  },
+  "120363000000000001@g.us": {
+    "jid": "120363000000000001@g.us",
+    "name": "Projeto Falcon",
+    "kind": "group",
+    "transcriptPath": "WhatsApp/Groups/Projeto Falcon.md",
+    "lastMessageZPk": 26,
+    "lastMessageAtIso": "2026-03-10T13:06:00.000Z",
+    "lastDayHeading": "2026-03-10",
+    "messageTotal": 7,
+    "coveredSinceMac": 0,
+    "participants": [
+      "+5511966665555",
+      "+5511988887777",
+      "Bruno Lima",
+      "Carla ⚡",
+      "Member-1uyzqlg",
+      "Member-zpvto3"
+    ]
+  },
+  "120363000000000002@g.us": {
+    "jid": "120363000000000002@g.us",
+    "name": "Projeto: \"Falcon\" / Q4 #1 [beta]",
+    "kind": "group",
+    "transcriptPath": "WhatsApp/Groups/Projeto Falcon Q4 1 beta.md",
+    "lastMessageZPk": 30,
+    "lastMessageAtIso": "2026-03-10T14:00:00.000Z",
+    "lastDayHeading": "2026-03-10",
+    "messageTotal": 1,
+    "coveredSinceMac": 0,
+    "participants": [
+      "Bruno Lima"
+    ]
+  },
+  "5511999990005@s.whatsapp.net": {
+    "jid": "5511999990005@s.whatsapp.net",
+    "name": "+5511999990005",
+    "kind": "personal",
+    "transcriptPath": "WhatsApp/Personal/+5511999990005.md",
+    "lastMessageZPk": 50,
+    "lastMessageAtIso": "2026-03-10T16:00:00.000Z",
+    "lastDayHeading": "2026-03-10",
+    "messageTotal": 1,
+    "coveredSinceMac": 0,
+    "participants": [
+      "+5511999990005",
+      "Eu"
+    ]
+  },
+  "120363000000000003@g.us": {
+    "jid": "120363000000000003@g.us",
+    "name": "Injeção",
+    "kind": "group",
+    "transcriptPath": "WhatsApp/Groups/Injeção.md",
+    "lastMessageZPk": 64,
+    "lastMessageAtIso": "2026-03-10T17:04:00.000Z",
+    "lastDayHeading": "2026-03-10",
+    "messageTotal": 5,
+    "coveredSinceMac": 0,
+    "participants": [
+      "Member-1uyzqlg"
+    ]
+  }
+}
