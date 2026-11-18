@@ -11,7 +11,7 @@
 import { App, Notice, PluginSettingTab, type Setting, type SettingDefinitionItem } from "obsidian";
 
 import type WhatsAppDesktopPlugin from "../main";
-import type { LanguagePreference, UserSettings } from "../core/types";
+import { NOTE_GROUPINGS, type LanguagePreference, type NoteGrouping, type UserSettings } from "../core/types";
 import {
 	applyPeriodChoice,
 	applyScopeChoice,
@@ -35,6 +35,7 @@ import { ConfirmModal } from "./small-modals";
 type BooleanKey = "skipArchived" | "syncOnLaunch" | "verboseLogging";
 type FolderKey = "notesRootFolder" | "groupNotesFolder" | "directNotesFolder";
 type ControlKey =
+	| "noteGrouping"
 	| "scope"
 	| "period"
 	| "autoSyncIntervalMinutes"
@@ -129,6 +130,11 @@ export class WhatsAppDesktopSettingsTab extends PluginSettingTab {
 						name: m.folder,
 						desc: m.folderDesc(INDEX_NOTE_NAME),
 						control: { type: "text", key: "notesRootFolder", validate: folderError },
+					},
+					{
+						name: m.grouping,
+						desc: m.groupingDesc,
+						control: { type: "dropdown", key: "noteGrouping", options: m.groupingOptions },
 					},
 				],
 			},
@@ -270,7 +276,37 @@ export class WhatsAppDesktopSettingsTab extends PluginSettingTab {
 				s.selfDisplayName = text.trim() || t().defaults.selfDisplayName;
 				plugin.persistSoon();
 				return;
+			case "noteGrouping":
+				this.changeGrouping(NOTE_GROUPINGS.find((g) => g === text) ?? s.noteGrouping);
+				return;
 		}
+	}
+
+	/**
+	 * Switch the note layout. When chats already have notes, ask first and
+	 * reorganize them right away; cancelling keeps the previous layout.
+	 */
+	private changeGrouping(next: NoteGrouping): void {
+		const plugin = this.plugin;
+		const s = plugin.settings;
+		const pending = Object.values(plugin.state.chatRecords).filter((c) => c.grouping !== next).length;
+		if (!pending) {
+			s.noteGrouping = next;
+			void plugin.persist();
+			return;
+		}
+		const d = t().modals;
+		new ConfirmModal(
+			this.app,
+			d.reorganizeTitle,
+			d.reorganizeBody(pending, t().settings.groupingOptions[next]),
+			d.reorganizeConfirm,
+			() => {
+				s.noteGrouping = next;
+				void plugin.reorganizeNotes().then(() => this.update());
+			},
+			() => this.update(), // shows the previous layout again
+		).open();
 	}
 
 	/** "Sync now", or "Stop" while a sync runs. */

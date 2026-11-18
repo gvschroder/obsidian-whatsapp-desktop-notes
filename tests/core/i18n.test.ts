@@ -24,11 +24,12 @@ function shape(obj: object, prefix = ""): Record<string, string> {
 /** Call every entry with plausible arguments, for each locale. */
 function render(obj: object): string[] {
 	const out: string[] = [];
-	for (const v of Object.values(obj)) {
+	for (const [key, v] of Object.entries(obj)) {
 		if (typeof v === "string") out.push(v);
 		else if (typeof v === "function") {
 			const fn = v as (...args: unknown[]) => unknown;
-			out.push(String(fn(...new Array<unknown>(fn.length).fill(2))));
+			const args = key === "periodTitle" ? [{ type: "week", start: "2026-12-28", end: "2027-01-03" }] : new Array<unknown>(fn.length).fill(2);
+			out.push(String(fn(...args)));
 		}
 		else if (v && typeof v === "object") out.push(...render(v as object));
 	}
@@ -108,6 +109,7 @@ describe("pure modules follow the locale", () => {
 			jid: G.jid,
 			name: "Grupo",
 			kind: "group",
+			grouping: "single",
 			transcriptPath: "W/Groups/Grupo.md",
 			lastMessageZPk: 1,
 			lastDayHeading: "2025-01-01",

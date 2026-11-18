@@ -78,7 +78,7 @@ describe.skipIf(!ENABLED)("benchmark", () => {
 				const settings = { ...DEFAULT_SETTINGS, chatStoragePathOverride: path, periodDays: 0 };
 				const state = emptyState();
 				const vault = new Vault();
-				const opts = { isCancelled: () => false, driver };
+				const opts = { isCancelled: () => false, driver, trashFile: vault.trashFile };
 
 				let t = process.hrtime.bigint();
 				const first = await runIncrementalSync(vault as unknown as ObsidianVault, settings, state, opts);

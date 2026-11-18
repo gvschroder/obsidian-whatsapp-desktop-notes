@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as fs from "fs";
 import type { Vault as ObsidianVault } from "obsidian";
 
-import { rebuildChats, runIncrementalSync, type SyncHooks } from "../../src/sync-service";
+import { rebuildChats, reorganizeNotes, runIncrementalSync, type SyncHooks } from "../../src/sync-service";
 import { scopeKey } from "../../src/core/planner";
 import { startSyncing, stopSyncing, storeList } from "../../src/core/selection";
 import { inspectChatStorage } from "../../src/source/whatsapp-repo";
@@ -52,12 +52,12 @@ const native = await loadNativeDriver();
 if (!native) throw new Error("The tests need node:sqlite (Node 22.13 or later).");
 const driver: SqliteDriver = native;
 
-function sync(vault: Vault, cfg: Config, opts: SyncHooks = neverCancel): ReturnType<typeof runIncrementalSync> {
-	return runIncrementalSync(asVault(vault), cfg.settings, cfg.state, { driver, ...opts });
+function sync(vault: Vault, cfg: Config, opts: Omit<SyncHooks, "trashFile"> = neverCancel): ReturnType<typeof runIncrementalSync> {
+	return runIncrementalSync(asVault(vault), cfg.settings, cfg.state, { driver, trashFile: vault.trashFile, ...opts });
 }
 
 function rebuild(vault: Vault, cfg: Config, ...jids: string[]): ReturnType<typeof rebuildChats> {
-	return rebuildChats(asVault(vault), cfg.settings, cfg.state, jids, { driver });
+	return rebuildChats(asVault(vault), cfg.settings, cfg.state, jids, { driver, trashFile: vault.trashFile });
 }
 
 const FALCON = "WhatsApp/Groups/Projeto Falcon.md";
@@ -601,6 +601,200 @@ describe("sync", () => {
 			expect(vault.files.has(old)).toBe(false);
 			expect(vault.files.get(FALCON)).toContain("# Projeto Falcon");
 			expect(cfg.state.chatRecords[JID.falcon]?.transcriptPath).toBe(FALCON);
+		});
+	});
+
+	describe("note grouping", () => {
+		/** A note without its frontmatter and title. */
+		const body = (note = ""): string => note.slice(note.indexOf("\n", note.indexOf("\n# ") + 1) + 1);
+		const ALICE = "WhatsApp/Personal/Alice Souza";
+		const reorganize = (vault: Vault, cfg: Config): ReturnType<typeof reorganizeNotes> =>
+			reorganizeNotes(asVault(vault), cfg.settings, cfg.state, { trashFile: vault.trashFile });
+
+		afterEach(() => {
+			vi.useRealTimers();
+		});
+
+		it("by month: a folder per chat with one note per month, holding the same messages as a single note", async () => {
+			const single = new Vault();
+			await sync(single, configFor(fx));
+			const vault = new Vault();
+			const cfg = configFor(fx, { noteGrouping: "month" });
+			await sync(vault, cfg);
+
+			const path = "WhatsApp/Groups/Projeto Falcon/2026-03.md";
+			const note = vault.files.get(path) ?? "";
+			expect(note).toContain('whatsapp_period: "2026-03"\nwhatsapp_period_type: month\n');
+			expect(note).toContain("# Projeto Falcon · March 2026\n");
+			expect(body(note)).toBe(body(single.files.get(FALCON)));
+			expect(vault.files.has(FALCON)).toBe(false);
+			expect(cfg.state.chatRecords[JID.falcon]).toMatchObject({ grouping: "month", transcriptPath: path });
+			expect(vault.files.get("WhatsApp/WhatsApp Index.md")).toContain("[[WhatsApp/Groups/Projeto Falcon/2026-03|Projeto Falcon]]");
+		});
+
+		it("by day: new messages go to their day's note, and a new day starts a new note", async () => {
+			const vault = new Vault();
+			const cfg = configFor(fx, { noteGrouping: "day" });
+			await sync(vault, cfg);
+			expect([...vault.files.keys()].filter((p) => p.startsWith(`${ALICE}/`)).sort()).toEqual([`${ALICE}/2026-03-10.md`, `${ALICE}/2026-03-11.md`]);
+
+			await mutateChatStorage(fx.chatStorage, {
+				messages: [
+					{ zPk: 70, chat: 1, fromJid: JID.alice, text: "Mesmo dia", at: "2026-03-11T13:00:00Z" },
+					{ zPk: 71, chat: 1, fromJid: JID.alice, text: "Dia seguinte", at: "2026-03-12T13:00:00Z" },
+				],
+			});
+			expect(await sync(vault, cfg)).toMatchObject({ messagesSaved: 2, failedChats: 0 });
+			const day11 = vault.files.get(`${ALICE}/2026-03-11.md`) ?? "";
+			expect(day11).toContain("Mesmo dia");
+			expect(day11.split("## 2026-03-11").length).toBe(2); // the day header is not repeated
+			expect(vault.files.get(`${ALICE}/2026-03-12.md`)).toMatch(/# Alice Souza · Thursday, March 12, 2026\n\n## 2026-03-12\n\n\*\*10:00\*\* — Alice Souza: Dia seguinte/);
+			expect(cfg.state.chatRecords[JID.alice]?.transcriptPath).toBe(`${ALICE}/2026-03-12.md`);
+		});
+
+		it("reorganizing loses nothing: one note → days → one note gives the same files back, hand-written text included", async () => {
+			const vault = new Vault();
+			const cfg = configFor(fx);
+			await sync(vault, cfg);
+			vault.files.set(`${ALICE}.md`, `${vault.files.get(`${ALICE}.md`) ?? ""}Minha anotação\n`);
+			const before = vault.dump();
+
+			cfg.settings.noteGrouping = "day";
+			expect(await reorganize(vault, cfg)).toEqual({ chats: 5, failed: 0 });
+			expect(vault.files.has(`${ALICE}.md`)).toBe(false);
+			expect(vault.trashed).toContain(`${ALICE}.md`);
+			expect(vault.files.get(`${ALICE}/2026-03-11.md`)?.endsWith("Bom dia\n\nMinha anotação\n")).toBe(true);
+			expect(cfg.state.chatRecords[JID.alice]).toMatchObject({ grouping: "day", transcriptPath: `${ALICE}/2026-03-11.md` });
+
+			cfg.settings.noteGrouping = "year";
+			await reorganize(vault, cfg);
+			expect(vault.getFolderByPath(ALICE)?.children.map((c) => c.path)).toEqual([`${ALICE}/2026.md`]);
+
+			cfg.settings.noteGrouping = "single";
+			await reorganize(vault, cfg);
+			expect(vault.dump()).toBe(before);
+			expect(vault.getFolderByPath(ALICE)).toBeNull(); // the emptied folder went to the trash too
+			expect(await reorganize(vault, cfg)).toEqual({ chats: 0, failed: 0 });
+		});
+
+		it("a sync first moves notes left in another layout, then appends to the new ones", async () => {
+			const vault = new Vault();
+			const cfg = configFor(fx);
+			await sync(vault, cfg);
+			cfg.settings.noteGrouping = "month";
+			await mutateChatStorage(fx.chatStorage, {
+				messages: [{ zPk: 70, chat: 2, member: 2, fromJid: JID.falcon, text: "Nova no grupo", at: "2026-04-01T12:00:00Z" }],
+			});
+			expect(await sync(vault, cfg)).toMatchObject({ messagesSaved: 1, failedChats: 0 });
+			expect(vault.files.has(FALCON)).toBe(false);
+			expect(vault.files.get("WhatsApp/Groups/Projeto Falcon/2026-03.md")).toContain("Contato salvo (Bruno)");
+			expect(vault.files.get("WhatsApp/Groups/Projeto Falcon/2026-04.md")).toContain("Nova no grupo");
+		});
+
+		it("never takes over a file of the user's that has the period note's name", async () => {
+			const vault = new Vault();
+			const cfg = configFor(fx);
+			await sync(vault, cfg);
+			vault.folders.add(ALICE);
+			vault.files.set(`${ALICE}/2026-03-10.md`, "minha nota");
+			cfg.settings.noteGrouping = "day";
+			await reorganize(vault, cfg);
+			expect(vault.files.get(`${ALICE}/2026-03-10.md`)).toBe("minha nota");
+			expect(vault.files.get(`${ALICE} (2)/2026-03-10.md`)).toContain("Oi! Tudo bem?");
+		});
+
+		it("widening the period adds earlier days' notes, same result as syncing the wider period", async () => {
+			vi.useFakeTimers({ toFake: ["Date"] });
+			vi.setSystemTime(new Date("2026-03-12T05:00:00Z"));
+			const direct = new Vault();
+			await sync(direct, configFor(fx, { noteGrouping: "day", periodDays: 30 }));
+
+			const vault = new Vault();
+			const cfg = configFor(fx, { noteGrouping: "day", periodDays: 1 });
+			await sync(vault, cfg);
+			expect([...vault.files.keys()].filter((p) => p.startsWith(`${ALICE}/`))).toEqual([`${ALICE}/2026-03-11.md`]);
+			cfg.settings.periodDays = 30;
+			await sync(vault, cfg);
+			expect(vault.dump()).toBe(direct.dump());
+		});
+
+		it("rebuilding rewrites each period's note and moves the folder to the chat's current name", async () => {
+			const vault = new Vault();
+			const cfg = configFor(fx, { noteGrouping: "month" });
+			await sync(vault, cfg);
+			const folder = "WhatsApp/Groups/Projeto Falcon";
+			const old = "WhatsApp/Groups/Nome antigo";
+			await vault.rename(vault.getFolderByPath(folder)!, old);
+			vault.files.set(`${old}/2026-03.md`, `${vault.files.get(`${old}/2026-03.md`) ?? ""}duplicado\n`);
+			cfg.state.chatRecords[JID.falcon] = { ...cfg.state.chatRecords[JID.falcon]!, transcriptPath: `${old}/2026-03.md` };
+
+			expect(await rebuild(vault, cfg, JID.falcon)).toMatchObject({ notesRebuilt: 1, failed: 0 });
+			expect(vault.getFolderByPath(old)).toBeNull();
+			expect(vault.files.get(`${folder}/2026-03.md`)).not.toContain("duplicado");
+			expect(cfg.state.chatRecords[JID.falcon]?.transcriptPath).toBe(`${folder}/2026-03.md`);
+		});
+
+		it("rebuilding a chat still in another layout regroups it first", async () => {
+			const vault = new Vault();
+			const cfg = configFor(fx);
+			await sync(vault, cfg);
+			cfg.settings.noteGrouping = "week";
+			await rebuild(vault, cfg, JID.alice);
+			expect(vault.files.has(`${ALICE}.md`)).toBe(false);
+			expect(vault.files.get(`${ALICE}/2026-03-09--2026-03-15.md`)).toContain("Bom dia");
+			expect(vault.files.has(FALCON)).toBe(true); // other chats wait for the next sync
+		});
+
+		describe("notes named by an older version", () => {
+			const WEEK = `${ALICE}/2026-03-09--2026-03-15.md`;
+			const OLD = `${ALICE}/2026-W11.md`;
+			const aliceNotes = (vault: Vault): string[] => [...vault.files.keys()].filter((p) => p.startsWith(`${ALICE}/`)).sort();
+
+			async function byWeek(): Promise<{ vault: Vault; cfg: Config; original: Map<string, string> }> {
+				const vault = new Vault();
+				const cfg = configFor(fx, { noteGrouping: "week" });
+				await sync(vault, cfg);
+				return { vault, cfg, original: new Map(vault.files) };
+			}
+
+			it("the next sync renames them to the current names, keeping their content", async () => {
+				const { vault, cfg, original } = await byWeek();
+				vault.files.set(OLD, vault.files.get(WEEK) ?? "");
+				vault.files.delete(WEEK);
+				await sync(vault, cfg);
+				expect(vault.files.get(WEEK)).toBe(original.get(WEEK));
+				expect(vault.files.has(OLD)).toBe(false);
+				expect(vault.trashed).toContain(OLD);
+			});
+
+			it("a copy next to the current note is dropped, without repeating its days", async () => {
+				const { vault, cfg, original } = await byWeek();
+				vault.files.set(OLD, (vault.files.get(WEEK) ?? "").replace("# Alice Souza · March 9–15, 2026", "# Alice Souza · 2026-W11"));
+				await rebuild(vault, cfg, JID.alice);
+				expect(aliceNotes(vault)).toEqual([...original.keys()].filter((p) => p.startsWith(`${ALICE}/`)).sort());
+				expect(vault.files.get(WEEK)).toBe(original.get(WEEK));
+				expect(vault.trashed).toContain(OLD);
+			});
+
+			it("a note in another period's name (a month left in a week folder) is regrouped too", async () => {
+				const { vault, cfg, original } = await byWeek();
+				vault.files.set(`${ALICE}/2026-03.md`, vault.files.get(WEEK) ?? "");
+				vault.files.delete(WEEK);
+				await sync(vault, cfg);
+				expect(vault.files.get(WEEK)).toBe(original.get(WEEK));
+				expect(vault.files.has(`${ALICE}/2026-03.md`)).toBe(false);
+			});
+
+			it("notes the user keeps in the chat's folder are left alone", async () => {
+				const { vault, cfg } = await byWeek();
+				vault.files.set(`${ALICE}/Resumo.md`, "Minhas notas\n");
+				vault.files.set(`${ALICE}/2026-W12.md`, "Sem o ID da conversa\n");
+				expect(await reorganize(vault, cfg)).toEqual({ chats: 0, failed: 0 });
+				await sync(vault, cfg);
+				expect(vault.files.get(`${ALICE}/Resumo.md`)).toBe("Minhas notas\n");
+				expect(vault.files.get(`${ALICE}/2026-W12.md`)).toBe("Sem o ID da conversa\n");
+				expect(vault.trashed).toEqual([]);
+			});
 		});
 	});
 

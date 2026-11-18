@@ -141,32 +141,34 @@ export function targetRoot(settings: Pick<UserSettings, "notesRootFolder">): str
 	return settings.notesRootFolder.trim() || DEFAULT_NOTES_ROOT;
 }
 
-/** Whether a note path is already used (by another chat, the index or a file). */
+/** Whether a path is already used (by another chat, the index or a file or folder in the vault). */
 export type PathTaken = (path: string) => boolean;
 
 type FolderSettings = Pick<UserSettings, "notesRootFolder" | "groupNotesFolder" | "directNotesFolder">;
 
 /**
- * A note path named after the chat — "<root>/<subfolder>/<name>.md" — or
- * "<name> (2).md", "(3)"… when that one is taken.
+ * The n-th base tried for a chat — "<root>/<subfolder>/<name>", then
+ * "<name> (n)". It is the note without ".md" (one note per chat) or the chat's
+ * folder (one note per period).
  */
-export function freeNotePath(name: string, kind: ChatKind, settings: FolderSettings, isTaken: PathTaken): string {
+export function candidateBase(name: string, kind: ChatKind, settings: FolderSettings, n: number): string {
+	const subfolder = kind === "group" ? settings.groupNotesFolder : settings.directNotesFolder;
+	const base = `${[targetRoot(settings), subfolder].filter(Boolean).join("/")}/${toSafeFileName(name)}`;
+	return n === 1 ? base : `${base} (${n})`;
+}
+
+/** The first base named after the chat that `isTaken` does not reject. */
+export function freeBase(name: string, kind: ChatKind, settings: FolderSettings, isTaken: PathTaken): string {
 	for (let n = 1; ; n++) {
-		const path = candidateNotePath(name, kind, settings, n);
-		if (!isTaken(path)) return path;
+		const base = candidateBase(name, kind, settings, n);
+		if (!isTaken(base)) return base;
 	}
 }
 
-/** The n-th name tried for a chat's note: "<name>.md", then "<name> (n).md". */
-export function candidateNotePath(name: string, kind: ChatKind, settings: FolderSettings, n: number): string {
-	const subfolder = kind === "group" ? settings.groupNotesFolder : settings.directNotesFolder;
-	const base = `${[targetRoot(settings), subfolder].filter(Boolean).join("/")}/${toSafeFileName(name)}`;
-	return n === 1 ? `${base}.md` : `${base} (${n}).md`;
-}
-
-
-
-/**
+/** A note path named after the chat (one note per chat), or "<name> (2).md"… when taken. */
+export function freeNotePath(name: string, kind: ChatKind, settings: FolderSettings, isTaken: PathTaken): string {
+	return `${freeBase(name, kind, settings, (base) => isTaken(`${base}.md`))}.md`;
+}/**
  * Path of the regenerated conversation index: a note named after the root
  * folder, inside it ("WhatsApp/WhatsApp.md"), so its name does not depend on
  * the interface language.

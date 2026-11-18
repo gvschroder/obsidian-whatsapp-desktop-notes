@@ -17,7 +17,9 @@ export abstract class TAbstractFile {
 }
 
 export class TFile extends TAbstractFile {}
-export class TFolder extends TAbstractFile {}
+export class TFolder extends TAbstractFile {
+	children: TAbstractFile[] = [];
+}
 
 export class Notice {
 	constructor(public message: string, public timeout?: number) {}
@@ -64,7 +66,14 @@ export class Vault {
 
 	getFolderByPath(path: string): TFolder | null {
 		const p = normalizePath(path);
-		return this.folders.has(p) ? new TFolder(p) : null;
+		if (!this.folders.has(p)) return null;
+		const folder = new TFolder(p);
+		const inside = (q: string): boolean => q.startsWith(`${p}/`) && !q.slice(p.length + 1).includes("/");
+		folder.children = [
+			...[...this.folders].filter(inside).map((q) => new TFolder(q)),
+			...[...this.files.keys()].filter(inside).map((q) => new TFile(q)),
+		];
+		return folder;
 	}
 
 	async cachedRead(file: TFile): Promise<string> {
@@ -81,13 +90,39 @@ export class Vault {
 		return next;
 	}
 
-	async rename(file: TFile, newPath: string): Promise<void> {
+	async rename(file: TAbstractFile, newPath: string): Promise<void> {
 		const p = normalizePath(newPath);
-		if (this.files.has(p)) throw new Error("Destination file already exists!");
-		this.files.set(p, this.files.get(file.path) ?? "");
-		this.files.delete(file.path);
+		if (this.files.has(p) || this.folders.has(p)) throw new Error("Destination file already exists!");
+		if (file instanceof TFolder) {
+			const move = (q: string): string => (q === file.path || q.startsWith(`${file.path}/`) ? p + q.slice(file.path.length) : q);
+			for (const q of [...this.folders]) {
+				this.folders.delete(q);
+				this.folders.add(move(q));
+			}
+			for (const [q, data] of [...this.files]) {
+				this.files.delete(q);
+				this.files.set(move(q), data);
+			}
+		} else {
+			this.files.set(p, this.files.get(file.path) ?? "");
+			this.files.delete(file.path);
+		}
 		file.path = p;
 	}
+
+	/** Paths moved to the trash, in order (tests check nothing is deleted outright). */
+	readonly trashed: string[] = [];
+
+	/** Stands in for FileManager.trashFile. */
+	readonly trashFile = async (file: TAbstractFile): Promise<void> => {
+		if (file instanceof TFolder) {
+			if ([...this.files.keys(), ...this.folders].some((q) => q.startsWith(`${file.path}/`))) throw new Error("Folder not empty (mock)");
+			this.folders.delete(file.path);
+		} else {
+			this.files.delete(file.path);
+		}
+		this.trashed.push(file.path);
+	};
 
 	getAbstractFileByPath(path: string): TAbstractFile | null {
 		const p = normalizePath(path);

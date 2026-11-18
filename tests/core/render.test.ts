@@ -1,7 +1,18 @@
 import { describe, expect, it } from "vitest";
 
-import { formatLocalDate, insertOlderMessages, transcriptHeader, renderIndex, renderMessages, speakerName, formatLocalTime } from "../../src/core/render";
+import {
+	formatLocalDate,
+	insertOlderMessages,
+	joinSections,
+	splitNote,
+	transcriptHeader,
+	renderIndex,
+	renderMessages,
+	speakerName,
+	formatLocalTime,
+} from "../../src/core/render";
 import { dateToCoreDataTime } from "../../src/core/mactime";
+import { setLocale } from "../../src/core/i18n";
 import type { ChatSyncRecord, ChatStorageMessage } from "../../src/core/types";
 
 // Runs with TZ=America/Sao_Paulo (UTC−3), set in vitest.config.mts.
@@ -95,6 +106,7 @@ describe("renderIndex", () => {
 		jid: "j",
 		name: "N",
 		kind: "group",
+		grouping: "single",
 		transcriptPath: "WA/G/N h.md",
 		lastMessageZPk: 1,
 		lastMessageAtIso: "2026-03-10T12:00:00.000Z",
@@ -148,5 +160,59 @@ describe("insertOlderMessages", () => {
 	it("falls back to the top when the header was removed", () => {
 		expect(insertOlderMessages("texto", "X\n", "2026-03-09")).toBe("X\ntexto");
 		expect(insertOlderMessages("---\na: 1\n---\ncorpo", "X\n", "")).toBe("---\na: 1\n---\nX\ncorpo");
+	});
+});
+
+describe("period notes", () => {
+	it("a period note carries its period in the frontmatter, as dates, and in the title, in words", () => {
+		const header = transcriptHeader("G", "g@g.us", "group", [], "2026-03-09--2026-03-15");
+		expect(header).toContain(
+			'whatsapp_period: "2026-03-09--2026-03-15"\n' +
+				"whatsapp_period_type: week\n" +
+				"whatsapp_period_start: 2026-03-09\n" +
+				"whatsapp_period_end: 2026-03-15\n",
+		);
+		expect(header.endsWith("# G · March 9–15, 2026\n")).toBe(true);
+		expect(transcriptHeader("G", "g@g.us", "group", [])).not.toContain("whatsapp_period");
+	});
+
+	it.each([
+		["2026", "2026", "2026"],
+		["2026-03", "March 2026", "março de 2026"],
+		["2026-03-10", "Tuesday, March 10, 2026", "terça, 10 de março de 2026"],
+		["2026-03-01", "Sunday, March 1, 2026", "domingo, 1º de março de 2026"],
+		["2026-03-09--2026-03-15", "March 9–15, 2026", "9 a 15 de março de 2026"],
+		["2026-03-30--2026-04-05", "March 30 – April 5, 2026", "30 de março a 5 de abril de 2026"],
+		["2026-12-28--2027-01-03", "December 28, 2026 – January 3, 2027", "28 de dezembro de 2026 a 3 de janeiro de 2027"],
+	])("names period %s in words", (key, english, portuguese) => {
+		expect(transcriptHeader("G", "g@g.us", "group", [], key)).toContain(`# G · ${english}\n`);
+		setLocale("pt");
+		try {
+			expect(transcriptHeader("G", "g@g.us", "group", [], key)).toContain(`# G · ${portuguese}\n`);
+		} finally {
+			setLocale("en");
+		}
+	});
+
+	it("splits a note into days and joins it back unchanged, text added by hand included", () => {
+		const header = transcriptHeader("G", "g@g.us", "group", []);
+		const body = "Nota minha\n\n## 2026-03-10\n\n**09:00** — A: oi\n\n\n## 2026-03-11\n\n**10:00** — B: tchau\n\nComentário";
+		const { preamble, sections } = splitNote(header + body);
+		expect(preamble).toBe("Nota minha\n");
+		expect(sections.map((s) => s.day)).toEqual(["2026-03-10", "2026-03-11"]);
+		expect(sections[1]?.text).toBe("\n## 2026-03-11\n\n**10:00** — B: tchau\n\nComentário");
+		expect(joinSections(preamble, sections)).toBe(body);
+	});
+
+	it("only YYYY-MM-DD level-2 headings start a day", () => {
+		const { sections } = splitNote("# T\n\n## 2026-03-10\n\n## Minha seção\n### 2026-03-11\n");
+		expect(sections).toHaveLength(1);
+	});
+
+	it("a note ending without a line break still leaves the next day on its own line", () => {
+		const a = { day: "2026-03-10", text: "\n## 2026-03-10\n\nfim" };
+		const b = { day: "2026-03-11", text: "\n## 2026-03-11\n\nx\n\n" };
+		expect(joinSections("", [a, b])).toBe("\n## 2026-03-10\n\nfim\n\n## 2026-03-11\n\nx\n\n");
+		expect(splitNote("# T\n").sections).toEqual([]);
 	});
 });

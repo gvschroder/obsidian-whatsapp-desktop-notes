@@ -2,8 +2,32 @@
 // a missing or misspelled key a compile error.
 
 import type { Messages } from "./en";
+import { dayParts, type Period } from "../periods";
 
 const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
+
+const MONTHS = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+const WEEKDAYS = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
+
+/** "2026", "março de 2026", "9 a 15 de março de 2026", "terça, 10 de março de 2026". */
+function periodTitle({ type, start, end }: Period): string {
+	const a = dayParts(start);
+	const b = dayParts(end);
+	const month = (p: typeof a): string => MONTHS[p.month - 1] ?? "";
+	const day = (p: typeof a): string => (p.day === 1 ? "1º" : String(p.day));
+	switch (type) {
+		case "year":
+			return String(a.year);
+		case "month":
+			return `${month(a)} de ${a.year}`;
+		case "day":
+			return `${WEEKDAYS[a.weekday] ?? ""}, ${day(a)} de ${month(a)} de ${a.year}`;
+		case "week":
+			if (a.year !== b.year) return `${day(a)} de ${month(a)} de ${a.year} a ${day(b)} de ${month(b)} de ${b.year}`;
+			if (a.month !== b.month) return `${day(a)} de ${month(a)} a ${day(b)} de ${month(b)} de ${a.year}`;
+			return `${day(a)} a ${day(b)} de ${month(a)} de ${a.year}`;
+	}
+}
 
 export const pt: Messages = {
 	defaults: {
@@ -33,6 +57,8 @@ export const pt: Messages = {
 		rebuilt: (n) => `Nota reconstruída com ${plural(n, "mensagem", "mensagens")}.`,
 		rebuiltAll: (notes, failed) =>
 			`${plural(notes, "nota reconstruída", "notas reconstruídas")}.` + (failed ? ` ${failed} com erro — veja o console.` : ""),
+		reorganized: (chats, failed) =>
+			`Notas de ${plural(chats, "conversa reorganizadas", "conversas reorganizadas")}.` + (failed ? ` ${failed} com erro — veja o console.` : ""),
 		listComplete: "Todas as conversas já estão na lista.",
 		testing: "Testando o acesso…",
 	},
@@ -119,7 +145,11 @@ export const pt: Messages = {
 
 		notesHeading: "Notas",
 		folder: "Pasta no vault",
-		folderDesc: (index) => `Cada conversa vira uma nota nesta pasta. A nota "${index}" lista todas.`,
+		folderDesc: (index) => `As notas das conversas ficam nesta pasta. A nota "${index}" lista todas as conversas.`,
+		grouping: "Dividir as notas por",
+		groupingDesc:
+			"Uma nota por conversa, ou uma nota por período numa pasta por conversa — mais leve de abrir em conversas longas. Mudar reorganiza as notas existentes.",
+		groupingOptions: { single: "Nada (uma nota por conversa)", year: "Ano", month: "Mês", week: "Semana", day: "Dia" },
 
 		autoHeading: "Sincronização automática",
 		interval: "Frequência",
@@ -224,6 +254,10 @@ export const pt: Messages = {
 		rebuildAllBody:
 			"Todas as notas de conversa serão reescritas com as mensagens do período configurado. O que você escreveu à mão nelas será perdido.",
 		rebuildConfirm: "Reconstruir",
+		reorganizeTitle: "Reorganizar as notas?",
+		reorganizeBody: (chats, layout) =>
+			`As notas de ${plural(chats, "conversa", "conversas")} serão reagrupadas por "${layout}". Nada é lido do WhatsApp e nenhuma mensagem se perde; os arquivos antigos vão para a lixeira. Propriedades que você acrescentou ao frontmatter não são levadas.`,
+		reorganizeConfirm: "Reorganizar",
 	},
 
 	statusBar: {
@@ -251,5 +285,6 @@ export const pt: Messages = {
 		indexGroups: "Grupos",
 		indexNone: "_Nenhuma ainda._",
 		indexMessages: (n) => plural(n, "mensagem", "mensagens"),
+		periodTitle,
 	},
 };

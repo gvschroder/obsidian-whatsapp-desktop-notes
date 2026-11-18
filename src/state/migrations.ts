@@ -9,10 +9,12 @@
 
 import {
 	DEFAULT_SETTINGS,
+	NOTE_GROUPINGS,
 	SCHEMA_VERSION,
 	emptyState,
 	type ChatFilterEntry,
 	type ChatSyncRecord,
+	type NoteGrouping,
 	type PersistedData,
 	type SyncState,
 	type UserSettings,
@@ -32,7 +34,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 /**
  * Settings for a first install. Folder names and the "me" label follow the
- * interface language detected at load.
+ * interface language detected at load. New installs split notes by month;
+ * a data.json without the setting predates it and keeps one note per chat.
  */
 export function initialSettings(): UserSettings {
 	const d = t().defaults;
@@ -43,7 +46,12 @@ export function initialSettings(): UserSettings {
 		groupNotesFolder: d.groupNotesFolder,
 		directNotesFolder: d.directNotesFolder,
 		selfDisplayName: d.selfDisplayName,
+		noteGrouping: "month",
 	};
+}
+
+function grouping(value: unknown): NoteGrouping {
+	return NOTE_GROUPINGS.find((g) => g === value) ?? "single";
 }
 
 function sanitizeChatFilter(raw: unknown): Record<string, ChatFilterEntry> {
@@ -72,10 +80,11 @@ function sanitizeSettings(raw: unknown): UserSettings {
 	out.chosenChats = sanitizeChatFilter(raw.chosenChats);
 	out.excludedChats = sanitizeChatFilter(raw.excludedChats);
 	out.language = raw.language === "en" || raw.language === "pt" ? raw.language : "auto";
+	out.noteGrouping = grouping(raw.noteGrouping);
 	return out;
 }
 
-function isChatState(value: unknown): value is Omit<ChatSyncRecord, "participants" | "coveredSinceMac"> {
+function isChatState(value: unknown): value is Omit<ChatSyncRecord, "participants" | "coveredSinceMac" | "grouping"> {
 	return (
 		isRecord(value) &&
 		typeof value.jid === "string" &&
@@ -98,6 +107,8 @@ function sanitizeState(raw: unknown): SyncState {
 				const covered = (chat as { coveredSinceMac?: unknown }).coveredSinceMac;
 				state.chatRecords[jid] = {
 					...chat,
+					// Notes written before the setting existed are one per chat.
+					grouping: grouping((chat as { grouping?: unknown }).grouping),
 					coveredSinceMac: typeof covered === "number" && Number.isFinite(covered) ? covered : null,
 					participants: stringList((chat as { participants?: unknown }).participants),
 				};

@@ -12,6 +12,18 @@ export type ChatKind = "group" | "personal";
  */
 export type ChatFilterMode = "all" | "include" | "exclude";
 
+/**
+ * How a chat's messages are split into notes:
+ *   single  one note per chat: "<subfolder>/<chat>.md"
+ *   year, month, week, day
+ *           one note per period, in a folder per chat:
+ *           "<subfolder>/<chat>/2026.md", "2026-11.md", "2026-11-16--2026-11-22.md",
+ *           "2026-11-18.md" (a week runs Monday to Sunday)
+ */
+export type NoteGrouping = "single" | "year" | "month" | "week" | "day";
+
+export const NOTE_GROUPINGS: readonly NoteGrouping[] = ["single", "year", "month", "week", "day"];
+
 /** Interface language: follow Obsidian/the OS, or force one. */
 export type LanguagePreference = "auto" | "en" | "pt";
 
@@ -37,6 +49,8 @@ export interface UserSettings {
 	groupNotesFolder: string;
 	/** Subfolder (under notesRootFolder) for personal (1:1) chat transcripts. */
 	directNotesFolder: string;
+	/** One note per chat, or one note per period in a folder per chat. */
+	noteGrouping: NoteGrouping;
 
 	// --- What to sync ---
 	includeGroupChats: boolean;
@@ -94,6 +108,9 @@ export interface ChatSyncRecord {
 	jid: string;
 	name: string;
 	kind: ChatKind;
+	/** Layout the chat's notes are in (it can lag behind the setting until they are reorganized). */
+	grouping: NoteGrouping;
+	/** The chat's note; with a period layout, the latest period's note. */
 	transcriptPath: string;
 	/** Highest ZWAMESSAGE.Z_PK already written — the incremental cursor. */
 	lastMessageZPk: number;
@@ -151,6 +168,9 @@ export const DEFAULT_SETTINGS: UserSettings = {
 	notesRootFolder: "WhatsApp",
 	groupNotesFolder: "Groups",
 	directNotesFolder: "Personal",
+	// Installs from before the setting existed keep one note per chat; new
+	// installs start with one note per month (see state/migrations#initialSettings).
+	noteGrouping: "single",
 	includeGroupChats: true,
 	includeDirectChats: true,
 	periodDays: 30,

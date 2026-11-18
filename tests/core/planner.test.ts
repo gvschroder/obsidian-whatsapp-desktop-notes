@@ -29,6 +29,7 @@ function chatState(overrides: Partial<ChatSyncRecord> = {}): ChatSyncRecord {
 		jid: "a@s.whatsapp.net",
 		name: "A",
 		kind: "personal",
+		grouping: "single",
 		transcriptPath: "X/Personal/A abc.md",
 		lastMessageZPk: 0,
 		lastMessageAtIso: "",

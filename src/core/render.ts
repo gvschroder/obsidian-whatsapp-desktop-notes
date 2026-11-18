@@ -6,6 +6,7 @@ import { yamlList } from "./frontmatter";
 import { renderMedia } from "./media";
 import { coreDataTimeToDate } from "./mactime";
 import { t } from "./i18n";
+import { periodOf } from "./periods";
 import type { ChatGroup } from "./planner";
 import type { ChatKind, ChatSyncRecord, ChatStorageMessage } from "./types";
 
@@ -44,18 +45,75 @@ export function speakerName(
 	return chat.kind === "personal" ? chat.name : t().notes.unknownSender;
 }
 
-/** Frontmatter + "# title" written once, when a transcript note is created. */
-export function transcriptHeader(name: string, jid: string, kind: ChatKind, participants: string[]): string {
+/**
+ * Frontmatter + "# title" written once, when a transcript note is created.
+ * `period` (a period key, e.g. "2026-11") marks one note of a chat split by
+ * period: the frontmatter says which days it covers, as dates, and the title
+ * names the period in words.
+ */
+export function transcriptHeader(name: string, jid: string, kind: ChatKind, participants: string[], period = ""): string {
+	const title = escapeMarkdown(singleLine(name));
+	const covers = period ? periodOf(period) : null;
 	return (
 		`---\n` +
 		`source: whatsapp-desktop\n` +
 		`whatsapp_jid: ${toYamlString(jid)}\n` +
 		`whatsapp_chat: ${toYamlString(name)}\n` +
+		(covers
+			? `whatsapp_period: ${toYamlString(period)}\n` +
+				`whatsapp_period_type: ${covers.type}\n` +
+				`whatsapp_period_start: ${covers.start}\n` +
+				`whatsapp_period_end: ${covers.end}\n`
+			: "") +
 		`chat_type: ${kind}\n` +
 		yamlList("participants", participants) +
 		`---\n\n` +
-		`# ${escapeMarkdown(singleLine(name))}\n`
+		`# ${covers ? `${title} · ${t().notes.periodTitle(covers)}` : title}\n`
 	);
+}
+
+/** Where a note's body starts: after its frontmatter and "# title" line. */
+function headerEnd(content: string): number {
+	let at = 0;
+	if (content.startsWith("---\n")) {
+		const end = content.indexOf("\n---\n", 4);
+		if (end !== -1) at = end + 5;
+	}
+	const title = /^# .*$/m.exec(content.slice(at));
+	if (title) at += title.index + title[0].length + 1;
+	return at;
+}
+
+/** One day of a note: its "## YYYY-MM-DD" header and everything up to the next day. */
+export interface DaySection {
+	day: string;
+	/** "\n## YYYY-MM-DD\n\n…", exactly as in the note. */
+	text: string;
+}
+
+const DAY_HEADER = /^## (\d{4}-\d{2}-\d{2})[ \t]*$/gm;
+
+/**
+ * A note's body, cut losslessly: the text before its first day (normally
+ * empty, but it can hold what the user wrote there) and its day sections in
+ * note order. `preamble + texts` gives the body back unchanged.
+ */
+export function splitNote(content: string): { preamble: string; sections: DaySection[] } {
+	const body = content.slice(headerEnd(content));
+	const starts = [...body.matchAll(DAY_HEADER)].map((m) => {
+		const at = m.index ?? 0;
+		// The blank line before a day header belongs to that day.
+		return { at: at > 0 && body[at - 1] === "\n" ? at - 1 : at, day: m[1] ?? "" };
+	});
+	const sections = starts.map((s, i) => ({ day: s.day, text: body.slice(s.at, starts[i + 1]?.at ?? body.length) }));
+	return { preamble: body.slice(0, starts[0]?.at ?? body.length), sections };
+}
+
+/** A note body from a preamble and day sections (possibly from several notes). */
+export function joinSections(preamble: string, sections: DaySection[]): string {
+	const last = sections.length - 1;
+	// A note may end without a line break; the next day still needs its own line.
+	return preamble + sections.map((s, i) => (i < last && !s.text.endsWith("\n") ? `${s.text}\n` : s.text)).join("");
 }
 
 export interface RenderedMessages {
@@ -104,13 +162,7 @@ export function renderMessages(
  * with, that day's header is not repeated.
  */
 export function insertOlderMessages(content: string, olderBody: string, olderLastDay: string): string {
-	let at = 0;
-	if (content.startsWith("---\n")) {
-		const end = content.indexOf("\n---\n", 4);
-		if (end !== -1) at = end + 5;
-	}
-	const title = /^# .*$/m.exec(content.slice(at));
-	if (title) at += title.index + title[0].length + 1;
+	const at = headerEnd(content);
 	let rest = content.slice(at);
 	const sameDay = `\n## ${olderLastDay}\n\n`;
 	if (olderLastDay && rest.startsWith(sameDay)) rest = rest.slice(sameDay.length);

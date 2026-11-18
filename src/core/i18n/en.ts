@@ -1,7 +1,31 @@
 // English strings — the reference dictionary. Every other language provides
 // the same keys (enforced by the `Messages` type).
 
+import { dayParts, type Period } from "../periods";
+
 const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
+
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+/** "2026", "March 2026", "March 9–15, 2026", "Tuesday, March 10, 2026". */
+function periodTitle({ type, start, end }: Period): string {
+	const a = dayParts(start);
+	const b = dayParts(end);
+	const month = (p: typeof a): string => MONTHS[p.month - 1] ?? "";
+	switch (type) {
+		case "year":
+			return String(a.year);
+		case "month":
+			return `${month(a)} ${a.year}`;
+		case "day":
+			return `${WEEKDAYS[a.weekday] ?? ""}, ${month(a)} ${a.day}, ${a.year}`;
+		case "week":
+			if (a.year !== b.year) return `${month(a)} ${a.day}, ${a.year} – ${month(b)} ${b.day}, ${b.year}`;
+			if (a.month !== b.month) return `${month(a)} ${a.day} – ${month(b)} ${b.day}, ${a.year}`;
+			return `${month(a)} ${a.day}–${b.day}, ${a.year}`;
+	}
+}
 
 export const en = {
 	/** Values written into a first install's settings. */
@@ -31,6 +55,8 @@ export const en = {
 		rebuilt: (n: number) => `Note rebuilt with ${plural(n, "message", "messages")}.`,
 		rebuiltAll: (notes: number, failed: number) =>
 			`${plural(notes, "note", "notes")} rebuilt.` + (failed ? ` ${failed} failed — see the developer console.` : ""),
+		reorganized: (chats: number, failed: number) =>
+			`Notes of ${plural(chats, "chat", "chats")} reorganized.` + (failed ? ` ${failed} failed — see the developer console.` : ""),
 		listComplete: "Every chat is already on the list.",
 		testing: "Testing access…",
 	},
@@ -118,7 +144,11 @@ export const en = {
 
 		notesHeading: "Notes",
 		folder: "Vault folder",
-		folderDesc: (index: string) => `Each chat becomes a note in this folder. The note "${index}" lists them all.`,
+		folderDesc: (index: string) => `Chat notes go in this folder. The note "${index}" lists every chat.`,
+		grouping: "Split notes by",
+		groupingDesc:
+			"One note per chat, or one note per period in a folder per chat — lighter to open for long chats. Changing it reorganizes the existing notes.",
+		groupingOptions: { single: "Nothing (one note per chat)", year: "Year", month: "Month", week: "Week", day: "Day" },
 
 		autoHeading: "Automatic sync",
 		interval: "Frequency",
@@ -223,6 +253,10 @@ export const en = {
 		rebuildAllBody:
 			"Every chat note will be rewritten with the messages of the configured period. Text you added by hand will be lost.",
 		rebuildConfirm: "Rebuild",
+		reorganizeTitle: "Reorganize the notes?",
+		reorganizeBody: (chats: number, layout: string) =>
+			`The notes of ${plural(chats, "chat", "chats")} will be regrouped as "${layout}". Nothing is read from WhatsApp and no message is lost; the old files go to the trash. Properties you added to their frontmatter are not carried over.`,
+		reorganizeConfirm: "Reorganize",
 	},
 
 	statusBar: {
@@ -251,6 +285,8 @@ export const en = {
 		indexGroups: "Groups",
 		indexNone: "_None yet._",
 		indexMessages: (n: number) => plural(n, "message", "messages"),
+		/** The period in a period note's "# title", written out. */
+		periodTitle,
 	},
 };
 

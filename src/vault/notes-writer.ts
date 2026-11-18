@@ -4,12 +4,15 @@
 // atomic. Creating a file tolerates a race with another writer: if the file
 // appears in between, the write is applied to the existing file instead.
 
-import { normalizePath, type TFile, type Vault } from "obsidian";
+import { normalizePath, TFile, type TAbstractFile, type Vault } from "obsidian";
 
 import { t } from "../core/i18n";
 
-/** Renames a note; in Obsidian, FileManager.renameFile also updates links to it. */
-export type RenameFile = (file: TFile, newPath: string) => Promise<void>;
+/** Renames a note or folder; in Obsidian, FileManager.renameFile also updates links to it. */
+export type RenameFile = (file: TAbstractFile, newPath: string) => Promise<void>;
+
+/** Moves a note or folder to the trash; in Obsidian, FileManager.trashFile follows the user's trash setting. */
+export type TrashFile = (file: TAbstractFile) => Promise<void>;
 
 function fileAt(vault: Vault, path: string): TFile | null {
 	return vault.getFileByPath(normalizePath(path));
@@ -70,9 +73,41 @@ export async function transformNote(vault: Vault, path: string, transform: (cont
 	return file !== null;
 }
 
-/** Move a note (nothing happens when it does not exist). */
+/** Move a note or a folder (nothing happens when it does not exist). */
 export async function moveNote(vault: Vault, from: string, to: string, rename?: RenameFile): Promise<void> {
-	const file = fileAt(vault, from);
+	const file = vault.getAbstractFileByPath(normalizePath(from));
 	if (!file) return;
 	await (rename ? rename(file, normalizePath(to)) : vault.rename(file, normalizePath(to)));
+}
+
+/** Whether a folder exists at this vault path. */
+export function folderExists(vault: Vault, path: string): boolean {
+	return vault.getFolderByPath(normalizePath(path)) !== null;
+}
+
+/** The Markdown notes directly inside a folder, sorted by path (none when it does not exist). */
+export function notesIn(vault: Vault, folder: string): string[] {
+	const children = vault.getFolderByPath(normalizePath(folder))?.children ?? [];
+	return children
+		.filter((c): c is TFile => c instanceof TFile && c.path.endsWith(".md"))
+		.map((c) => c.path)
+		.sort();
+}
+
+/** Read a note; null when there is none. */
+export async function readNote(vault: Vault, path: string): Promise<string | null> {
+	const file = fileAt(vault, path);
+	return file ? vault.cachedRead(file) : null;
+}
+
+/** Move a note to the trash (nothing happens when it does not exist). */
+export async function trashNote(vault: Vault, path: string, trash: TrashFile): Promise<void> {
+	const file = fileAt(vault, path);
+	if (file) await trash(file);
+}
+
+/** Move a folder to the trash when nothing is left in it. */
+export async function trashFolderIfEmpty(vault: Vault, path: string, trash: TrashFile): Promise<void> {
+	const folder = vault.getFolderByPath(normalizePath(path));
+	if (folder && !folder.children.length) await trash(folder);
 }

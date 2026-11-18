@@ -8,6 +8,7 @@ const chat = {
 	jid: "g@g.us",
 	name: "G",
 	kind: "group",
+	grouping: "month",
 	transcriptPath: "WhatsApp/Groups/G h.md",
 	lastMessageZPk: 42,
 	lastMessageAtIso: "2026-03-10T12:00:00.000Z",
@@ -33,6 +34,16 @@ describe("migrate", () => {
 		setLocale("pt");
 		expect(initialSettings()).toMatchObject({ groupNotesFolder: "Grupos", directNotesFolder: "Pessoais", selfDisplayName: "Eu" });
 		expect(migrate(null).settings.notesRootFolder).toBe("WhatsApp");
+	});
+
+	it("new installs split notes by month; files from before the setting keep one note per chat", () => {
+		expect(initialSettings().noteGrouping).toBe("month");
+		const { grouping: _, ...old } = chat;
+		const data = migrate({ schemaVersion: 1, settings: { notesRootFolder: "W" }, state: { chatRecords: { [chat.jid]: old } } });
+		expect(data.settings.noteGrouping).toBe("single");
+		expect(data.state.chatRecords[chat.jid]?.grouping).toBe("single");
+		expect(migrate({ settings: { noteGrouping: "fortnight" } }).settings.noteGrouping).toBe("single");
+		expect(migrate({ settings: { noteGrouping: "week" } }).settings.noteGrouping).toBe("week");
 	});
 
 	it("loads a saved file as-is", () => {

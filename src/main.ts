@@ -1,7 +1,7 @@
 // Plugin lifecycle and the actions the UI triggers. Sync logic lives in
 // sync-service.ts; everything it decides is in core/.
 
-import { Notice, Platform, Plugin, debounce, type TFile } from "obsidian";
+import { Notice, Platform, Plugin, debounce, type TAbstractFile } from "obsidian";
 
 import { SCHEMA_VERSION, type ChatKind, type SyncState, type UserSettings } from "./core/types";
 import { applyScopeChoice, scopeChoice, usesChatList } from "./core/choices";
@@ -9,7 +9,7 @@ import { pickerStart, storeList, type ChatListing, type SelectionChange } from "
 import { NOTICE_PREFIX, setLocale, t } from "./core/i18n";
 import { dbNotFoundMessage, userMessage } from "./core/errors";
 import { setMacOS } from "./core/platform";
-import { rebuildChats, runIncrementalSync } from "./sync-service";
+import { rebuildChats, reorganizeNotes, runIncrementalSync } from "./sync-service";
 import { findChatStorage } from "./source/paths";
 import { listChats } from "./source/whatsapp-repo";
 import { StateStore } from "./state/store";
@@ -35,7 +35,10 @@ export default class WhatsAppDesktopPlugin extends Plugin {
 	private autoSyncTimer: number | null = null;
 
 	/** Renames notes through Obsidian, which updates every link to them. */
-	private readonly renameFile = (file: TFile, newPath: string): Promise<void> => this.app.fileManager.renameFile(file, newPath);
+	private readonly renameFile = (file: TAbstractFile, newPath: string): Promise<void> => this.app.fileManager.renameFile(file, newPath);
+
+	/** Discards notes through Obsidian, which follows the user's "deleted files" setting. */
+	private readonly trashFile = (file: TAbstractFile): Promise<void> => this.app.fileManager.trashFile(file);
 
 	/** Save after typing pauses, so text fields don't rewrite data.json per keystroke. */
 	readonly persistSoon = debounce(() => void this.persist(), 500, true);
@@ -221,6 +224,8 @@ export default class WhatsAppDesktopPlugin extends Plugin {
 				reportProgress: (done, total) => this.statusBar.progress(done, total),
 				// Save each chat's cursor as soon as its note is written.
 				afterChatSaved: () => this.persist(),
+				renameFile: this.renameFile,
+				trashFile: this.trashFile,
 			});
 			this.state.lastSync = new Date().toISOString();
 			await this.persist();
@@ -231,7 +236,10 @@ export default class WhatsAppDesktopPlugin extends Plugin {
 	/** Rewrite one chat's note (the caller has already asked for confirmation). */
 	async rebuildNote(jid: string): Promise<void> {
 		await this.exclusive(async () => {
-			const result = await rebuildChats(this.app.vault, this.settings, this.state, [jid], { renameFile: this.renameFile });
+			const result = await rebuildChats(this.app.vault, this.settings, this.state, [jid], {
+				renameFile: this.renameFile,
+				trashFile: this.trashFile,
+			});
 			await this.persist();
 			if (result.missing.includes(jid)) new Notice(PREFIX + t().errors.emptyWindow);
 			else if (result.failed) throw new Error(t().errors.writeNoteFailed(this.state.chatRecords[jid]?.transcriptPath ?? jid));
@@ -246,9 +254,23 @@ export default class WhatsAppDesktopPlugin extends Plugin {
 				reportProgress: (done, total) => this.statusBar.progress(done, total),
 				afterChatSaved: () => this.persist(),
 				renameFile: this.renameFile,
+				trashFile: this.trashFile,
 			});
 			await this.persist();
 			new Notice(PREFIX + t().notices.rebuiltAll(result.notesRebuilt, result.failed));
+		});
+	}
+
+	/** Regroup existing notes into the configured layout (the caller has already asked). */
+	async reorganizeNotes(): Promise<void> {
+		await this.exclusive(async () => {
+			const result = await reorganizeNotes(this.app.vault, this.settings, this.state, {
+				reportProgress: (done, total) => this.statusBar.progress(done, total),
+				afterChatSaved: () => this.persist(),
+				trashFile: this.trashFile,
+			});
+			await this.persist();
+			new Notice(PREFIX + t().notices.reorganized(result.chats, result.failed));
 		});
 	}
 }

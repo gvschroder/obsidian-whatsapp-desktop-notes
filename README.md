@@ -8,7 +8,8 @@
 > [Por que só macOS](#por-que-só-macos).
 
 Transforme suas conversas do WhatsApp Desktop em notas no seu vault do Obsidian —
-uma nota por conversa, atualizada automaticamente. Tudo acontece no seu Mac: o
+uma pasta por conversa com uma nota por mês (ou por ano, semana, dia, ou uma
+nota só), atualizadas automaticamente. Tudo acontece no seu Mac: o
 plugin lê o banco de dados local do WhatsApp Desktop, somente leitura, e nunca
 acessa a internet.
 
@@ -20,26 +21,33 @@ acessa a internet.
 WhatsApp/
 ├── WhatsApp Index.md      ← índice das conversas sincronizadas, mais recentes primeiro
 ├── Pessoais/
-│   └── Alice Souza.md
+│   └── Alice Souza/
+│       ├── 2026-02.md
+│       └── 2026-03.md
 └── Grupos/
-    └── Projeto Falcon.md
+    └── Projeto Falcon/
+        └── 2026-03.md
 ```
 
-Cada nota começa com propriedades — incluindo quem está na conversa — e cresce
-a cada sincronização, com uma seção por dia:
+Cada nota começa com propriedades — incluindo quem está na conversa e o
+período — e cresce a cada sincronização, com uma seção por dia:
 
 ```markdown
 ---
 source: whatsapp-desktop
 whatsapp_jid: "5511999990001@s.whatsapp.net"
 whatsapp_chat: "Alice Souza"
+whatsapp_period: "2026-03"
+whatsapp_period_type: month
+whatsapp_period_start: 2026-03-01
+whatsapp_period_end: 2026-03-31
 chat_type: personal
 participants:
   - "Alice Souza"
   - "Eu"
 ---
 
-# Alice Souza
+# Alice Souza · março de 2026
 
 ## 2026-03-10
 
@@ -54,6 +62,9 @@ participants:
   pessoais, só as que você escolher ou todas exceto as escolhidas.
 - **Escolha até quando voltar:** últimos 7, 30, 90 ou 365 dias, ou todo o
   histórico. Ampliar o período depois traz as mensagens antigas.
+- **Notas leves, mesmo em conversas longas:** divida cada conversa por ano,
+  mês (padrão), semana ou dia, numa pasta da conversa — ou mantenha uma nota só
+  por conversa. Mudar a opção reorganiza as notas existentes sem perder nada.
 - **Mídias incluídas:** fotos, vídeos, áudios, documentos, contatos,
   localizações, GIFs e figurinhas aparecem como linhas identificadas, com
   legenda, duração ou nome (os arquivos continuam no WhatsApp).
@@ -134,6 +145,7 @@ antes.
 | | Ignorar conversas arquivadas | Deixa de fora as conversas arquivadas no WhatsApp. |
 | Período | Copiar mensagens de | Até quando voltar. Ampliar acrescenta as mensagens antigas no início de cada nota na próxima sincronização; reduzir mantém o que as notas já têm. |
 | Notas | Pasta no vault | Onde as notas são criadas. A nota de índice, "WhatsApp Index", fica nela. |
+| | Dividir as notas por | Ano, mês, semana (de segunda a domingo) ou dia, numa pasta por conversa; ou nada, uma nota por conversa. Mudar reorganiza as notas existentes. |
 | Sincronização automática | Frequência | Sincroniza em segundo plano com o Obsidian aberto. |
 | | Ao abrir o Obsidian | Sincroniza assim que o Obsidian termina de carregar. |
 | Acesso ao WhatsApp | Banco de dados do WhatsApp | Mostra onde o banco foi encontrado; **Testar acesso** confere se dá para ler. |
@@ -155,11 +167,25 @@ antes.
   nenhum outro arquivo fora do vault é lido ou gravado.
 - Cada conversa lembra a última mensagem gravada, então a próxima sincronização
   acrescenta só as mais novas — nem mensagens do mesmo segundo se repetem.
-- Cada nota tem o nome da conversa; duas conversas com o mesmo nome viram
+- Com a divisão por período, cada conversa tem uma pasta e cada período uma
+  nota, com nomes que dizem quais dias ela cobre e ficam em ordem cronológica:
+  `2026.md`, `2026-03.md`, `2026-03-09--2026-03-15.md` (semana, de segunda a
+  domingo) ou `2026-03-10.md`. O título traz o período por extenso ("9 a 15 de
+  março de 2026"), e as propriedades `whatsapp_period_start` e
+  `whatsapp_period_end` trazem o primeiro e o último dia como datas — fáceis de
+  filtrar em Bases ou Dataview. O índice aponta para a nota mais recente. Um dia
+  nunca fica dividido entre duas notas.
+- Mudar a divisão reorganiza as notas sem ler o WhatsApp: as seções de cada dia
+  são movidas como estão, inclusive o que você escreveu nelas e mensagens mais
+  antigas que o período atual. As notas novas são gravadas antes de as antigas
+  irem para a lixeira. Só propriedades que você acrescentou ao frontmatter não
+  são levadas. Instalações anteriores a esta opção continuam com uma nota por
+  conversa até você mudar.
+- Cada conversa tem o nome dela; duas conversas com o mesmo nome viram
   "Nome (2)". A conversa é identificada pelo ID do WhatsApp (`whatsapp_jid`), não
   pelo nome do arquivo: renomear uma conversa mantém a nota e o lugar dela na
-  sua seleção, e **Reconstruir** move a nota para o nome atual, atualizando os
-  links.
+  sua seleção, e **Reconstruir** move a nota (ou a pasta) para o nome atual,
+  atualizando os links.
 - O nome do remetente vem dos seus contatos salvos, depois do nome de perfil do
   WhatsApp e, por último, do telefone; membros desconhecidos de grupos aparecem
   como `Member-…`. Conversas sem nome aparecem pelo telefone.

@@ -30,14 +30,17 @@ export class ChatSuggestModal extends FuzzySuggestModal<ChatListing> {
 	}
 }
 
-/** Ask before a destructive action. */
+/** Ask before a destructive action. `onCancel` runs when it is closed without confirming. */
 export class ConfirmModal extends Modal {
+	private confirmed = false;
+
 	constructor(
 		app: App,
 		private readonly title: string,
 		private readonly message: string,
 		private readonly confirmLabel: string,
 		private readonly onConfirm: () => void,
+		private readonly onCancel?: () => void,
 	) {
 		super(app);
 	}
@@ -51,6 +54,7 @@ export class ConfirmModal extends Modal {
 				b.setDestructive()
 					.setButtonText(this.confirmLabel)
 					.onClick(() => {
+						this.confirmed = true;
 						this.close();
 						this.onConfirm();
 					}),
@@ -59,5 +63,6 @@ export class ConfirmModal extends Modal {
 
 	onClose(): void {
 		this.contentEl.empty();
+		if (!this.confirmed) this.onCancel?.();
 	}
 }

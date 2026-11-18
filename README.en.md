@@ -7,8 +7,9 @@
 > Linux are not supported: there the plugin stays inactive. See
 > [Why only macOS](#why-only-macos).
 
-Turn your WhatsApp Desktop chats into notes in your Obsidian vault — one note per
-chat, kept up to date automatically. Everything happens on your Mac: the plugin
+Turn your WhatsApp Desktop chats into notes in your Obsidian vault — a folder per
+chat with one note per month (or per year, week, day, or a single note), kept up
+to date automatically. Everything happens on your Mac: the plugin
 reads WhatsApp Desktop's local database, read-only, and never touches the
 network.
 
@@ -20,26 +21,33 @@ network.
 WhatsApp/
 ├── WhatsApp Index.md      ← index of every synced chat, newest first
 ├── Personal/
-│   └── Alice Souza.md
+│   └── Alice Souza/
+│       ├── 2026-02.md
+│       └── 2026-03.md
 └── Groups/
-    └── Project Falcon.md
+    └── Project Falcon/
+        └── 2026-03.md
 ```
 
-Each chat note starts with properties — including who is in the chat — and
-grows with every sync, one section per day:
+Each note starts with properties — including who is in the chat and the
+period — and grows with every sync, one section per day:
 
 ```markdown
 ---
 source: whatsapp-desktop
 whatsapp_jid: "5511999990001@s.whatsapp.net"
 whatsapp_chat: "Alice Souza"
+whatsapp_period: "2026-03"
+whatsapp_period_type: month
+whatsapp_period_start: 2026-03-01
+whatsapp_period_end: 2026-03-31
 chat_type: personal
 participants:
   - "Alice Souza"
   - "Me"
 ---
 
-# Alice Souza
+# Alice Souza · March 2026
 
 ## 2026-03-10
 
@@ -54,6 +62,9 @@ participants:
   the chats you pick, or everything except the ones you pick.
 - **Choose how far back:** the last 7, 30, 90 or 365 days, or the entire
   history. Widening the period later adds the older messages.
+- **Light notes, even for long chats:** split each chat by year, month
+  (default), week or day, in a folder per chat — or keep one note per chat.
+  Changing the option reorganizes the existing notes without losing anything.
 - **Media included:** photos, videos, voice messages, documents, contacts,
   locations, GIFs and stickers appear as labelled lines with their captions,
   durations or names (the files themselves stay in WhatsApp).
@@ -129,6 +140,7 @@ WhatsApp, so text you added to it by hand is lost; the plugin asks first.
 | | Skip archived chats | Leaves out chats archived in WhatsApp. |
 | Period | Copy messages from | How far back to copy. Widening it adds the older messages at the top of each note on the next sync; narrowing it keeps what notes already have. |
 | Notes | Vault folder | Where notes are created. The index note, "WhatsApp Index", goes in it. |
+| | Split notes by | Year, month, week (Monday to Sunday) or day, in a folder per chat; or nothing, one note per chat. Changing it reorganizes the existing notes. |
 | Automatic sync | Frequency | Background sync while Obsidian is open. |
 | | When Obsidian opens | Syncs once Obsidian finishes loading. |
 | WhatsApp access | WhatsApp database | Shows where the database was found; **Test access** checks it can be read. |
@@ -150,10 +162,23 @@ WhatsApp, so text you added to it by hand is lost; the plugin asks first.
   other file outside the vault is read or written.
 - Each chat remembers the last message it wrote, so the next sync adds only
   newer ones — even messages sent in the same second are never duplicated.
-- Each note is named after its chat; two chats with the same name get
+- Split by period, each chat gets a folder and each period a note, named after
+  the days it covers and sorting in time order: `2026.md`, `2026-03.md`,
+  `2026-03-09--2026-03-15.md` (a week, Monday to Sunday) or `2026-03-10.md`.
+  The title spells the period out ("March 9–15, 2026"), and the
+  `whatsapp_period_start` and `whatsapp_period_end` properties hold its first
+  and last day as dates — easy to filter in Bases or Dataview. The index links
+  to the latest note. A day is never split across two notes.
+- Changing the split reorganizes the notes without reading WhatsApp: each day's
+  section moves as it is, including what you wrote in it and messages older than
+  the current period. The new notes are written before the old ones go to the
+  trash. Only properties you added to the frontmatter are not carried over.
+  Installs from before this option keep one note per chat until you change it.
+- Each chat is named after itself; two chats with the same name get
   "Name (2)". The chat is identified by its WhatsApp ID (`whatsapp_jid`), not by the
   file name: renaming a chat keeps its note and its place in your selection, and
-  **Rebuild** moves the note to the chat's current name, updating links.
+  **Rebuild** moves the note (or folder) to the chat's current name, updating
+  links.
 - Sender names come from your saved contacts, then the sender's WhatsApp
   profile name, then the phone number; unknown group members appear as
   `Member-…`. Chats without a name show the phone number.
