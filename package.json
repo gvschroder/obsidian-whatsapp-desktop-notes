@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-whatsapp-desktop-notes",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "Sync your WhatsApp Desktop chats into your vault. macOS only. / Sincroniza suas conversas do WhatsApp Desktop com o seu vault. Somente macOS.",
 	"main": "main.js",
 	"engines": {
