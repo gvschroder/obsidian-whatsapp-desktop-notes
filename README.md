@@ -1,32 +1,32 @@
 # WhatsApp Desktop (macOS)
 
+🇬🇧 **[Read in English](README.en.md)**
+
 > [!IMPORTANT]
-> **macOS only.** Requires the official WhatsApp Desktop app for Mac. Windows and
-> Linux are not supported: there the plugin stays inactive. See
-> [Why only macOS](#why-only-macos).
+> **Somente macOS.** Requer o app oficial do WhatsApp Desktop para Mac. Windows e
+> Linux não são suportados: neles o plugin fica inativo. Veja
+> [Por que só macOS](#por-que-só-macos).
 
-Turn your WhatsApp Desktop chats into notes in your Obsidian vault — one note per
-chat, kept up to date automatically. Everything happens on your Mac: the plugin
-reads WhatsApp Desktop's local database, read-only, and never touches the
-network.
-
-**[Leia em português](README.pt-BR.md)**
+Transforme suas conversas do WhatsApp Desktop em notas no seu vault do Obsidian —
+uma nota por conversa, atualizada automaticamente. Tudo acontece no seu Mac: o
+plugin lê o banco de dados local do WhatsApp Desktop, somente leitura, e nunca
+acessa a internet.
 
 ---
 
-## What you get
+## O que você ganha
 
 ```
 WhatsApp/
-├── WhatsApp Index.md      ← index of every synced chat, newest first
-├── Personal/
+├── WhatsApp Index.md      ← índice das conversas sincronizadas, mais recentes primeiro
+├── Pessoais/
 │   └── Alice Souza.md
-└── Groups/
-    └── Project Falcon.md
+└── Grupos/
+    └── Projeto Falcon.md
 ```
 
-Each chat note starts with properties — including who is in the chat — and
-grows with every sync, one section per day:
+Cada nota começa com propriedades — incluindo quem está na conversa — e cresce
+a cada sincronização, com uma seção por dia:
 
 ```markdown
 ---
@@ -36,175 +36,183 @@ whatsapp_chat: "Alice Souza"
 chat_type: personal
 participants:
   - "Alice Souza"
-  - "Me"
+  - "Eu"
 ---
 
 # Alice Souza
 
 ## 2026-03-10
 
-**09:14** — Alice Souza: Did you see the proposal?
+**09:14** — Alice Souza: Viu a proposta?
 
-**09:15** — Alice Souza: [Document: proposal-v2.pdf]
+**09:15** — Alice Souza: [Documento: proposta-v2.pdf]
 
-**09:20** — Me: [Audio 0:42]
+**09:20** — Eu: [Áudio 0:42]
 ```
 
-- **Choose what to sync:** all chats, groups only, personal chats only, only
-  the chats you pick, or everything except the ones you pick.
-- **Choose how far back:** the last 7, 30, 90 or 365 days, or the entire
-  history. Widening the period later adds the older messages.
-- **Media included:** photos, videos, voice messages, documents, contacts,
-  locations, GIFs and stickers appear as labelled lines with their captions,
-  durations or names (the files themselves stay in WhatsApp).
-- **Who is in the chat:** a `participants` property lists the group's members
-  (or, in a one-to-one chat, the other person and you), refreshed whenever the
-  chat gets new messages or its note is rebuilt.
-- **Automatic:** every 15 minutes to 4 hours, and/or when Obsidian opens.
-- **Incremental:** each sync adds only new messages, with no duplicates.
-- **Safe text:** messages are written as plain text — they cannot inject links,
-  embeds, images, tags or code into your vault.
-- **English and Portuguese:** follows Obsidian's language, or your system's.
+- **Escolha o que sincronizar:** todas as conversas, só grupos, só conversas
+  pessoais, só as que você escolher ou todas exceto as escolhidas.
+- **Escolha até quando voltar:** últimos 7, 30, 90 ou 365 dias, ou todo o
+  histórico. Ampliar o período depois traz as mensagens antigas.
+- **Mídias incluídas:** fotos, vídeos, áudios, documentos, contatos,
+  localizações, GIFs e figurinhas aparecem como linhas identificadas, com
+  legenda, duração ou nome (os arquivos continuam no WhatsApp).
+- **Quem está na conversa:** a propriedade `participants` lista os membros do
+  grupo (ou, numa conversa individual, a outra pessoa e você), atualizada
+  sempre que a conversa recebe mensagens novas ou a nota é reconstruída.
+- **Automático:** de 15 em 15 minutos até de 4 em 4 horas, e/ou ao abrir o
+  Obsidian.
+- **Incremental:** cada sincronização acrescenta só as mensagens novas, sem
+  duplicar.
+- **Texto seguro:** as mensagens são gravadas como texto puro — não conseguem
+  inserir links, embeds, imagens, tags ou código no vault.
+- **Português e inglês:** segue o idioma do Obsidian ou o do sistema.
 
-## Requirements
+## Requisitos
 
-- **macOS** with the official **WhatsApp Desktop** app (not WhatsApp Web),
-  opened at least once.
-- **Obsidian 1.13 or later**, desktop, installed from a recent installer from
-  [obsidian.md](https://obsidian.md) (the plugin uses the SQLite built into it).
-- **Full Disk Access** for Obsidian (see below) — macOS protects WhatsApp's
-  data folder.
+- **macOS** com o app oficial **WhatsApp Desktop** (não o WhatsApp Web), aberto
+  pelo menos uma vez.
+- **Obsidian 1.13 ou mais recente**, desktop, instalado a partir de um instalador
+  recente de [obsidian.md](https://obsidian.md) (o plugin usa o SQLite que vem nele).
+- **Acesso Total ao Disco** para o Obsidian (veja abaixo) — o macOS protege a
+  pasta de dados do WhatsApp.
 
-### Why only macOS
+### Por que só macOS
 
-The plugin reads the message database that the official WhatsApp Desktop keeps
-on your computer. Only the macOS app keeps one that can be read: the official
-Windows app is WhatsApp Web inside a window, with its messages encrypted in
-browser storage, and there is no official WhatsApp Desktop for Linux. On those
-systems the plugin installs but stays inactive and says so in its settings.
+O plugin lê o banco de mensagens que o WhatsApp Desktop oficial guarda no
+computador. Só o app do macOS guarda um banco legível: o app oficial do Windows
+é o WhatsApp Web dentro de uma janela, com as mensagens criptografadas no
+armazenamento do navegador, e não existe WhatsApp Desktop oficial para Linux.
+Nesses sistemas o plugin instala, mas fica inativo e avisa isso nas
+configurações.
 
-## Getting started
+## Primeiros passos
 
-1. Install the plugin: copy `main.js`, `manifest.json` and `styles.css` from the
-   latest release into `<your vault>/.obsidian/plugins/whatsapp-desktop-sync/`,
-   then enable **WhatsApp Desktop (macOS)** in **Settings › Community plugins**.
-2. The **setup assistant** opens. It checks access to WhatsApp, then asks
-   which chats to sync, how far back, and which vault folder to use.
-3. Click **Save and sync**. Nothing is written to your vault before this step.
+1. Instale o plugin: copie `main.js`, `manifest.json` e `styles.css` da versão
+   mais recente para `<seu vault>/.obsidian/plugins/whatsapp-desktop-sync/` e
+   ative **WhatsApp Desktop (macOS)** em **Configurações › Plugins da comunidade**.
+2. O **assistente de configuração** abre. Ele verifica o acesso ao WhatsApp e
+   pergunta quais conversas sincronizar, até quando voltar e em qual pasta do
+   vault gravar.
+3. Clique em **Salvar e sincronizar**. Nada é gravado no vault antes disso.
 
-### Granting Full Disk Access
+### Como dar Acesso Total ao Disco
 
-1. Open **System Settings › Privacy & Security › Full Disk Access** (the
-   assistant has a button for it).
-2. Turn on **Obsidian** (add it with **+** if it is not listed).
-3. Quit and reopen Obsidian.
+1. Abra **Ajustes do Sistema › Privacidade e Segurança › Acesso Total ao Disco**
+   (o assistente tem um botão para isso).
+2. Ative o **Obsidian** (adicione com **+** se ele não aparecer).
+3. Feche e abra o Obsidian de novo.
 
-> **Know what you are granting.** Full Disk Access applies to the whole
-> Obsidian app, including every community plugin in every vault you open. Grant
-> it only if you trust those plugins, and check your company's policy on a work
-> computer.
+> **Saiba o que está liberando.** O Acesso Total ao Disco vale para o Obsidian
+> inteiro, incluindo todos os plugins da comunidade de qualquer vault que você
+> abrir. Libere só se confiar nesses plugins e, num computador de trabalho,
+> confira a política da empresa.
 
-## Everyday use
+## Uso no dia a dia
 
-| To… | Use |
+| Para… | Use |
 |---|---|
-| Sync now | The ribbon icon, the status bar item, or **Sync now** |
-| Pick chats | **Settings › Chats › Choose chats**, or **Choose chats to sync** |
-| Add one chat to your list | **Add a chat to the list** |
-| Stop syncing the chat you are reading | **Stop syncing this chat** (the note is kept) |
-| Refresh a note after edits or deletions in WhatsApp | **Rebuild this chat's note** |
-| Refresh every note | **Settings › Advanced › Rebuild all notes** |
-| Change the setup later | **Open the setup assistant** |
+| Sincronizar agora | O ícone na barra lateral, o item na barra de status ou **Sincronizar agora** |
+| Escolher conversas | **Configurações › Conversas › Escolher conversas** ou **Escolher conversas para sincronizar** |
+| Adicionar uma conversa à lista | **Adicionar uma conversa à lista** |
+| Parar de sincronizar a conversa aberta | **Parar de sincronizar esta conversa** (a nota é mantida) |
+| Atualizar uma nota após edições ou exclusões no WhatsApp | **Reconstruir a nota desta conversa** |
+| Atualizar todas as notas | **Configurações › Avançado › Reconstruir todas as notas** |
+| Mudar a configuração depois | **Abrir o assistente de configuração** |
 
-Commands live in the command palette (Cmd+P). Rebuilding rewrites a note from
-WhatsApp, so text you added to it by hand is lost; the plugin asks first.
+Os comandos ficam na paleta (Cmd+P). Reconstruir reescreve a nota a partir do
+WhatsApp, então o que você escreveu à mão nela é perdido; o plugin pergunta
+antes.
 
-## Settings
+## Configurações
 
-| Section | Setting | What it does |
+| Seção | Configuração | O que faz |
 |---|---|---|
-| — | Sync now | Runs a sync and shows when the last one finished. |
-| Chats | Chats to sync | All, groups only, personal only, only chosen, or all except chosen. |
-| | Choose chats | Opens the chat list: search, filter by kind, show archived chats. |
-| | Skip archived chats | Leaves out chats archived in WhatsApp. |
-| Period | Copy messages from | How far back to copy. Widening it adds the older messages at the top of each note on the next sync; narrowing it keeps what notes already have. |
-| Notes | Vault folder | Where notes are created. The index note, "WhatsApp Index", goes in it. |
-| Automatic sync | Frequency | Background sync while Obsidian is open. |
-| | When Obsidian opens | Syncs once Obsidian finishes loading. |
-| WhatsApp access | WhatsApp database | Shows where the database was found; **Test access** checks it can be read. |
-| | Setup assistant | Reopens the assistant. |
-| Advanced | Language | Automatic, English or Português. |
-| | Database path | Only needed if WhatsApp's database is not found automatically. |
-| | Subfolders | Folder names for group and personal chats (new notes). |
-| | Your name in chats | Label for the messages you sent. |
-| | Debug log | Details of each sync in the developer console. |
-| | Rebuild all notes | Rewrites every chat note for the current period. |
+| — | Sincronizar agora | Sincroniza e mostra quando foi a última vez. |
+| Conversas | Conversas sincronizadas | Todas, só grupos, só pessoais, só as escolhidas ou todas exceto as escolhidas. |
+| | Escolher conversas | Abre a lista de conversas: busca, filtro por tipo, conversas arquivadas. |
+| | Ignorar conversas arquivadas | Deixa de fora as conversas arquivadas no WhatsApp. |
+| Período | Copiar mensagens de | Até quando voltar. Ampliar acrescenta as mensagens antigas no início de cada nota na próxima sincronização; reduzir mantém o que as notas já têm. |
+| Notas | Pasta no vault | Onde as notas são criadas. A nota de índice, "WhatsApp Index", fica nela. |
+| Sincronização automática | Frequência | Sincroniza em segundo plano com o Obsidian aberto. |
+| | Ao abrir o Obsidian | Sincroniza assim que o Obsidian termina de carregar. |
+| Acesso ao WhatsApp | Banco de dados do WhatsApp | Mostra onde o banco foi encontrado; **Testar acesso** confere se dá para ler. |
+| | Assistente de configuração | Abre o assistente de novo. |
+| Avançado | Idioma | Automático, English ou Português. |
+| | Caminho do banco de dados | Só é necessário se o banco do WhatsApp não for encontrado sozinho. |
+| | Subpastas | Nomes das pastas de grupos e conversas pessoais (notas novas). |
+| | Seu nome nas conversas | Rótulo das mensagens que você enviou. |
+| | Log de depuração | Detalhes de cada sincronização no console do desenvolvedor. |
+| | Reconstruir todas as notas | Reescreve todas as notas para o período atual. |
 
-## How it works
+## Como funciona
 
-- WhatsApp Desktop keeps your messages in `ChatStorage.sqlite` and contact names
-  in `ContactsV2.sqlite`, in
+- O WhatsApp Desktop guarda as mensagens em `ChatStorage.sqlite` e os nomes dos
+  contatos em `ContactsV2.sqlite`, em
   `~/Library/Group Containers/group.net.whatsapp.WhatsApp.shared/`.
-- The plugin opens both **read-only** with the SQLite engine built into
-  Obsidian, so the newest messages appear immediately. Nothing is copied and no
-  other file outside the vault is read or written.
-- Each chat remembers the last message it wrote, so the next sync adds only
-  newer ones — even messages sent in the same second are never duplicated.
-- Each note is named after its chat; two chats with the same name get
-  "Name (2)". The chat is identified by its WhatsApp ID (`whatsapp_jid`), not by the
-  file name: renaming a chat keeps its note and its place in your selection, and
-  **Rebuild** moves the note to the chat's current name, updating links.
-- Sender names come from your saved contacts, then the sender's WhatsApp
-  profile name, then the phone number; unknown group members appear as
-  `Member-…`. Chats without a name show the phone number.
-- Media messages show a label with the caption, duration, file name, contact
-  name or a map link. Calls, polls, reactions and other events are not written.
+- O plugin abre os dois em **somente leitura** com o SQLite que já vem no
+  Obsidian, então as mensagens mais novas aparecem na hora. Nada é copiado, e
+  nenhum outro arquivo fora do vault é lido ou gravado.
+- Cada conversa lembra a última mensagem gravada, então a próxima sincronização
+  acrescenta só as mais novas — nem mensagens do mesmo segundo se repetem.
+- Cada nota tem o nome da conversa; duas conversas com o mesmo nome viram
+  "Nome (2)". A conversa é identificada pelo ID do WhatsApp (`whatsapp_jid`), não
+  pelo nome do arquivo: renomear uma conversa mantém a nota e o lugar dela na
+  sua seleção, e **Reconstruir** move a nota para o nome atual, atualizando os
+  links.
+- O nome do remetente vem dos seus contatos salvos, depois do nome de perfil do
+  WhatsApp e, por último, do telefone; membros desconhecidos de grupos aparecem
+  como `Member-…`. Conversas sem nome aparecem pelo telefone.
+- Mensagens de mídia aparecem com uma identificação e a legenda, duração, nome
+  do arquivo, nome do contato ou um link de mapa. Chamadas, enquetes, reações e
+  outros eventos não são gravados.
 
-## Privacy
+## Privacidade
 
-- **No network.** The plugin makes no requests and needs no account or key.
-- **Read-only.** WhatsApp's files are never modified, and no copy is written to
-  disk.
-- **Files outside the vault:** only the two WhatsApp databases above are read.
-- **Sensitive data in your vault:** chat notes contain other people's messages
-  and, for unsaved contacts, phone numbers. The plugin's `data.json`
-  (`.obsidian/plugins/whatsapp-desktop-sync/`) lists the synced chats' IDs,
-  names and participants. Think before syncing these files to other services,
-  and follow data protection rules (such as LGPD or GDPR) for work
-  conversations.
+- **Sem internet.** O plugin não faz requisições nem precisa de conta ou chave.
+- **Somente leitura.** Os arquivos do WhatsApp nunca são alterados, e nenhuma
+  cópia é gravada em disco.
+- **Arquivos fora do vault:** só os dois bancos do WhatsApp citados acima são
+  lidos.
+- **Dados sensíveis no vault:** as notas têm mensagens de outras pessoas e, para
+  contatos não salvos, números de telefone. O `data.json` do plugin
+  (`.obsidian/plugins/whatsapp-desktop-sync/`) lista os IDs, nomes e
+  participantes das conversas sincronizadas. Pense bem antes de sincronizar
+  esses arquivos com outros serviços e siga as regras de proteção de dados
+  (como a LGPD) em conversas de trabalho.
 
-## Troubleshooting
+## Solução de problemas
 
-| Problem | Solution |
+| Problema | Solução |
 |---|---|
-| "Could not open WhatsApp's database" | Open WhatsApp Desktop once, grant Full Disk Access to Obsidian and restart it. If WhatsApp keeps its data elsewhere, set **Advanced › Database path**. |
-| "This Obsidian installation lacks the built-in SQLite" | Download and install the latest Obsidian from obsidian.md; in-app updates do not replace the installer. |
-| "System not supported" | You are on Windows or Linux — see [Why only macOS](#why-only-macos). |
-| Older media or captions are missing from a note | Notes written before media support only gain new media; run **Rebuild this chat's note**. |
-| The first sync is slow | Choose a shorter period; later syncs only read new messages. |
-| A note looks wrong or has duplicates | Run **Rebuild this chat's note**. |
+| "Não foi possível abrir o banco de dados do WhatsApp" | Abra o WhatsApp Desktop uma vez, dê Acesso Total ao Disco ao Obsidian e reinicie-o. Se o WhatsApp guarda os dados em outro lugar, preencha **Avançado › Caminho do banco de dados**. |
+| "Esta instalação do Obsidian não tem o SQLite embutido" | Baixe e instale o Obsidian mais recente em obsidian.md; as atualizações pelo app não trocam o instalador. |
+| "Sistema não suportado" | Você está no Windows ou no Linux — veja [Por que só macOS](#por-que-só-macos). |
+| Faltam mídias ou legendas antigas numa nota | Notas criadas antes do suporte a mídias só recebem as novas; use **Reconstruir a nota desta conversa**. |
+| A primeira sincronização é lenta | Escolha um período menor; as seguintes leem só as mensagens novas. |
+| Uma nota está estranha ou com duplicatas | Use **Reconstruir a nota desta conversa**. |
 
-## Development
+## Desenvolvimento
 
-Requires Node 24 (`.nvmrc`; at least 22.13, for `node:sqlite`). Use a dedicated test vault.
+Requer Node 24 (`.nvmrc`; no mínimo 22.13, por causa do `node:sqlite`). Use um vault de teste separado.
 
 ```bash
 npm install
-npm run dev                      # rebuild main.js on every change
-npm run check                    # typecheck, lint, tests with coverage, licence policy
-npm run build                    # production bundle
-npm run install:vault -- --link  # link the build into ~/Documents/Obsidian Vault
+npm run dev                      # recompila o main.js a cada mudança
+npm run check                    # tipos, lint, testes com cobertura, política de licenças
+npm run build                    # pacote de produção
+npm run install:vault -- --link  # liga o build ao ~/Documents/Obsidian Vault
 ```
 
-`VAULT="/path/to/vault" npm run install:vault` installs into another vault.
-Tests run against a synthetic WhatsApp database
-(`tests/fixtures/whatsapp-fixture.ts`) and an in-memory vault; golden files in
-`tests/characterization/__golden__/` pin the generated Markdown.
+`VAULT="/caminho/do/vault" npm run install:vault` instala em outro vault. Os
+testes usam um banco do WhatsApp sintético (`tests/fixtures/whatsapp-fixture.ts`)
+e um vault em memória; os arquivos em `tests/characterization/__golden__/`
+fixam o Markdown gerado.
 
-## Licenses
+## Licenças
 
-MIT © 2026 Guilherme Schroder — see [LICENSE](LICENSE). `main.js` bundles no
-third-party code.
+MIT © 2026 Guilherme Schroder — veja [LICENSE](LICENSE). O `main.js` não inclui
+código de terceiros.
 
-This is an independent project, not affiliated with, endorsed by or sponsored by
-WhatsApp or Meta. "WhatsApp" is a trademark of WhatsApp LLC.
+Projeto independente, sem vínculo, endosso ou patrocínio do WhatsApp ou da Meta.
+"WhatsApp" é marca registrada da WhatsApp LLC.
